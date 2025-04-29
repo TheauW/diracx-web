@@ -1,6 +1,6 @@
 "use client";
 
-import { ErrorComponent } from "@dirac-grid/diracx-web-components/components";
+import { ErrorBox } from "@dirac-grid/diracx-web-components/components";
 
 export default function GlobalError({
   error,
@@ -9,5 +9,5 @@ export default function GlobalError({
   error: Error;
   reset: () => void;
 }) {
-  return <ErrorComponent msg={error.message} reset={reset} />;
+  return <ErrorBox msg={error.message} reset={reset} />;
 }

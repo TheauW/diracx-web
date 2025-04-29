@@ -8,13 +8,7 @@ import ReplayIcon from "@mui/icons-material/Replay";
  * @param reset The function to call to reset the error (optional)
  * @returns Error component
  */
-export function ErrorComponent({
-  msg,
-  reset,
-}: {
-  msg?: string;
-  reset?: () => void;
-}) {
+export function ErrorBox({ msg, reset }: { msg?: string; reset?: () => void }) {
   return (
     <Box
       sx={{
