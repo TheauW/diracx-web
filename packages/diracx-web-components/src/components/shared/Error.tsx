@@ -23,7 +23,6 @@ export function ErrorComponent({
         alignItems: "center",
         justifyContent: "center",
       }}
-      onClick={reset && reset}
     >
       <Alert
         severity="error"
