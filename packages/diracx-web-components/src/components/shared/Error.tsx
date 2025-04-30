@@ -13,7 +13,8 @@ export function ErrorBox({ msg, reset }: { msg?: string; reset?: () => void }) {
     <Box
       sx={{
         display: "flex",
-        height: "100vh",
+        height: 1,
+        width: 1,
         alignItems: "center",
         justifyContent: "center",
       }}
