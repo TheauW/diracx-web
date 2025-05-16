@@ -96,4 +96,6 @@ When managing multiple instances of the same application, grouping can help you 
 
 1. **Share**: You can share the status of an app by clicking on the share button in the top-right corner of the screen. After clicking, you can select which group and app you want to share and then copy a text corresponding to the states of the selected applications.
 
-2. **Import**: Next to the share button you can find the import button. You can paste into the window opened by the button the text corresponding to one or multiple shared apps. This will create a new group named *Imported App* with the imported applications and their settings. 
+2. **Import**: Next to the share button you can find the import button. You can paste into the window opened by the button the text corresponding to one or multiple shared apps. This will create a new group named *Imported App* with the imported applications and their settings.
+
+**Good to know:** When switching to a new version, the settings you are trying to import may no longer be valid. In this case, a new window will appear, offeringto resolve the issue bu updqting the state copied to your clipboard. This updated version preserves your imported rules as much as possible. 

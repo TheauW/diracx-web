@@ -116,7 +116,7 @@ export function ShareButton() {
       };
     });
 
-    setSelectedState(JSON.stringify(states, null, 2));
+    setSelectedState(JSON.stringify(states));
     setDialogOpen(true);
     handleClose();
   };
