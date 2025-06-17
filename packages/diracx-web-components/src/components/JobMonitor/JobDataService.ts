@@ -7,18 +7,43 @@ import utc from "dayjs/plugin/utc";
 dayjs.extend(utc);
 import { fetcher } from "../../hooks/utils";
 import { Filter, SearchBody, Job, JobHistory } from "../../types";
+import type { JobSummary } from "../../types";
 
 function processSearchBody(searchBody: SearchBody) {
   searchBody.search = searchBody.search?.map((filter: Filter) => {
     if (filter.operator == "last") {
-      return {
-        parameter: filter.parameter,
-        operator: "gt",
-        value: dayjs()
-          .subtract(1, filter.value as "hour" | "day" | "month" | "year")
-          .toISOString(),
-        values: filter.values,
-      };
+      const valueStr = filter.value as string;
+      const match = valueStr.match(/^(\d+)\s*(minute|hour|day|month|year)s?$/i);
+
+      if (match) {
+        const amount = parseInt(match[1], 10);
+        const unit = match[2].toLowerCase() as
+          | "minute"
+          | "hour"
+          | "day"
+          | "month"
+          | "year";
+
+        return {
+          parameter: filter.parameter,
+          operator: "gt",
+          value: dayjs().subtract(amount, unit).toISOString(),
+          values: filter.values,
+        };
+      } else {
+        // Fallback pour l'ancienne logique si le format n'est pas reconnu
+        return {
+          parameter: filter.parameter,
+          operator: "gt",
+          value: dayjs()
+            .subtract(
+              1,
+              filter.value as "minute" | "hour" | "day" | "month" | "year",
+            )
+            .toISOString(),
+          values: filter.values,
+        };
+      }
     }
     return filter;
   });
@@ -202,4 +227,32 @@ export async function getJobHistory(
   >([historyUrl, accessToken, "POST", body]);
 
   return { data: data[0].LoggingInfo };
+}
+
+export async function getJobSummary(
+  diracxUrl: string | null,
+  grouping: string[],
+  accessToken: string,
+  searchBody?: SearchBody,
+): Promise<{ data: JobSummary[] }> {
+  if (!diracxUrl) {
+    throw new Error("Invalid URL generated for fetching job history.");
+  }
+
+  if (searchBody) processSearchBody(searchBody);
+
+  const summaryUrl = `${diracxUrl}/api/jobs/summary`;
+  const body = {
+    grouping: grouping,
+    search: searchBody?.search || [],
+  };
+  // Expect the response to be an array of objects with all the grouping fields
+  const { data } = await fetcher<Array<JobSummary>>([
+    summaryUrl,
+    accessToken,
+    "POST",
+    body,
+  ]);
+
+  return { data };
 }
