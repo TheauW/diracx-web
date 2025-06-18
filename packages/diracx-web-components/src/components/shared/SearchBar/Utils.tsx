@@ -103,15 +103,43 @@ function handleEquationVerification(
         )
       )
         tokenEquation.status = "valid";
-      else if (tokenEquation.items[1].label === "in the last") {
+      else if (
+        tokenEquation.items[1].label === "in the last" &&
+        typeof tokenEquation.items[2].label == "string"
+      ) {
         const pattern =
-          /^(minute|hour|day|week|month|year)$|^\d+ (minutes|hours|days|weeks|months|years)$/;
+          /^(minute|hour|day|week|month|year)$|^(\d+)\s+(minutes|hours|days|weeks|months|years)$/;
 
-        tokenEquation.status = pattern.test(
-          tokenEquation.items[2].label as string,
-        )
-          ? "valid"
-          : "invalid";
+        const match = tokenEquation.items[2].label.match(pattern);
+        if (!match) {
+          tokenEquation.status = "invalid";
+          return tokenEquation;
+        }
+
+        if (match[1]) tokenEquation.status = "valid";
+        else {
+          const quantity = parseInt(match[2], 10);
+          const unit = match[3];
+          const years = (() => {
+            switch (unit) {
+              case "minutes":
+                return quantity / (60 * 24 * 365);
+              case "hours":
+                return quantity / (24 * 365);
+              case "days":
+                return quantity / 365;
+              case "weeks":
+                return quantity / 52;
+              case "months":
+                return quantity / 12;
+              case "years":
+                return quantity;
+              default:
+                return 0;
+            }
+          })();
+          tokenEquation.status = years < 200 ? "valid" : "invalid";
+        }
       }
   }
 
@@ -280,9 +308,9 @@ export function getPreviousEquationAndToken(
       return { previousEquation: undefined, previousToken: undefined };
     }
     const previousEquation =
-      tokenEquations[focusedTokenIndex.equationIndex - 1];
+      tokenEquations[focusedTokenIndex.equationIndex - 1] || undefined;
     const previousToken =
-      previousEquation.items[previousEquation.items.length - 1];
+      previousEquation.items[previousEquation.items.length - 1] || undefined;
     return { previousEquation, previousToken };
   }
   const lastEquation =
