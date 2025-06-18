@@ -138,7 +138,7 @@ function handleEquationVerification(
                 return 0;
             }
           })();
-          tokenEquation.status = years < 200 ? "valid" : "invalid";
+          tokenEquation.status = years < 2025 ? "valid" : "invalid";
         }
       }
   }

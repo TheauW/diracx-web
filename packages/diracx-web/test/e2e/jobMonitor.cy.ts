@@ -1,6 +1,5 @@
 /// <reference types="cypress" />
 
-
 describe("Job Monitor", () => {
   beforeEach(() => {
     cy.session("login", () => {
@@ -474,5 +473,18 @@ describe("Job Monitor", () => {
     cy.get(".MuiButtonBase-root").contains("Job Monitor").click();
 
     cy.get('[role="group"]').find("button").should("have.length", 3);
+  });
+
+  it("should control the in the last operator utilization", () => {
+    cy.get("table").should("be.visible");
+    cy.get("[data-testid=search-field]").type(
+      "SubmissionTime{enter}in the last{enter}4206942 years{enter}",
+    );
+
+    cy.wait(1000);
+
+    cy.get('[role="group"]').find("button").should("have.length", 3);
+
+    cy.get("table").should("be.visible");
   });
 });
