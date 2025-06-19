@@ -11,7 +11,6 @@ import { EquationAndTokenIndex } from "./Types";
 
 import {
   getPreviousEquationAndToken,
-  getHumanReadableText,
   handleEquationsVerification,
   getTokenType,
   convertListToString,
@@ -93,6 +92,8 @@ export default function SearchField({
       }
       setFocusedTokenIndex(null);
     } else {
+      // If no token is focused, create a new token
+
       if (previousEquation && previousEquation.status === "waiting") {
         previousEquation.items.push({
           label: formatedLabel,
@@ -201,6 +202,9 @@ export default function SearchField({
     }
   }
 
+  // Calculate the width of the input field based on the input value length
+  const width = Math.min(Math.max(inputValue.length * 8 + 50, 150), 800);
+
   return (
     <Autocomplete
       freeSolo
@@ -208,14 +212,13 @@ export default function SearchField({
       onInputChange={(_e, value) => {
         setInputValue(value);
       }}
-      sx={{ minWidth: "180px" }}
+      sx={{
+        minWidth: "180px",
+        width: "auto",
+        maxWidth: 0.9,
+      }}
       disableClearable={true}
       options={suggestions.items}
-      renderOption={(props, option) => (
-        <li {...props} key={option}>
-          {getHumanReadableText(option)}
-        </li>
-      )}
       value={inputValue}
       onHighlightChange={(_e, option) => {
         optionSelectedRef.current = option !== null;
@@ -231,6 +234,9 @@ export default function SearchField({
             input: {
               ...params.InputProps,
               disableUnderline: true,
+              style: {
+                width: `${width}px`,
+              },
             },
           }}
           onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {

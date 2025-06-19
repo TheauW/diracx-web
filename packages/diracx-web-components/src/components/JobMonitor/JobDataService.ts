@@ -12,7 +12,6 @@ import type { JobSummary } from "../../types";
 function processSearchBody(searchBody: SearchBody) {
   searchBody.search = searchBody.search?.map((filter: Filter) => {
     if (filter.operator == "last") {
-      // Extraire le nombre et l'unité de temps de la valeur
       const valueStr = filter.value as string;
       const match = valueStr.match(/^(\d+)\s*(minute|hour|day|month|year)s?$/i);
 
@@ -234,14 +233,18 @@ export async function getJobSummary(
   diracxUrl: string | null,
   grouping: string[],
   accessToken: string,
+  searchBody?: SearchBody,
 ): Promise<{ data: JobSummary[] }> {
   if (!diracxUrl) {
     throw new Error("Invalid URL generated for fetching job history.");
   }
+
+  if (searchBody) processSearchBody(searchBody);
+
   const summaryUrl = `${diracxUrl}/api/jobs/summary`;
   const body = {
     grouping: grouping,
-    search: [],
+    search: searchBody?.search || [],
   };
   // Expect the response to be an array of objects with all the grouping fields
   const { data } = await fetcher<Array<JobSummary>>([

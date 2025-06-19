@@ -4,11 +4,10 @@ import type {
   SearchBarTokenEquation,
   SearchBarToken,
   InternalFilter,
-  JobSummary,
   SearchBarSuggestions,
 } from "../../../types";
 
-import type { Data, EquationAndTokenIndex } from "./Types";
+import type { EquationAndTokenIndex } from "./Types";
 
 /**
  * @param tokenEquations The list of token equations to be verified.
@@ -148,143 +147,6 @@ function handleEquationVerification(
 
 /**
  *
- * @param previousToken The previous token, which can be undefined if no token is focused.
- * @param previousEquation The previous equation, which can be undefined if no equation is focused.
- * @param data The data to be used for suggestions.
- * @returns A list of suggestions based on the current tokens and data.
- */
-export function createSuggestions(
-  previousToken: SearchBarToken | undefined,
-  previousEquation: SearchBarTokenEquation | undefined,
-  data: Data[],
-  exceptCategories: string[] = [],
-  additionalCategories: SearchBarSuggestions = { items: [], type: [] },
-): SearchBarSuggestions {
-  if (
-    !previousToken ||
-    !previousEquation ||
-    previousEquation.items.length === 0 ||
-    previousToken.type.startsWith("custom") ||
-    previousToken.type === "value"
-  ) {
-    const items: string[] = Object.keys(data[0] || {})
-      .filter((item) => !exceptCategories.includes(item))
-      .concat(additionalCategories.items);
-    const type: string[] = Array(
-      items.length - additionalCategories.items.length,
-    )
-      .fill("category")
-      .concat(additionalCategories.type);
-
-    items.forEach((item, index) => {
-      let data_index: number = 0;
-      if (data.length > 0 && item in data[0]) {
-        while (
-          data_index < data.length - 1 &&
-          (data[data_index][item] === undefined ||
-            data[data_index][item] === null)
-        )
-          data_index++;
-
-        switch (typeof data[data_index][item]) {
-          case "string":
-            if (
-              /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(
-                String(data[data_index][item]),
-              )
-            ) {
-              type[index] = "category_date";
-            } else {
-              type[index] = "category_string";
-            }
-            break;
-          case "number":
-            type[index] = "category_number";
-            break;
-          case "boolean":
-            type[index] = "category_boolean";
-            break;
-          default:
-            type[index] = "category";
-        }
-      }
-    });
-    return {
-      items: items,
-      type: type,
-    };
-  }
-
-  if (previousToken.type === "operator_string") {
-    const items = Array.from(
-      new Set(
-        data.map((item) =>
-          String(item[previousEquation.items[0].label as keyof Data]),
-        ),
-      ),
-    );
-    return {
-      items: items,
-      type: Array(items.length).fill("value"),
-    };
-  }
-
-  if (
-    previousToken.type === "operator_date" &&
-    previousToken.label === "in the last"
-  ) {
-    return {
-      items: ["minute", "hour", "day", "week", "month", "year"],
-      type: Array(6).fill("value"),
-    };
-  }
-
-  let suggestions: { items: string[]; type: string[] } = {
-    items: [],
-    type: [],
-  };
-  switch (previousToken.type) {
-    case "category_string":
-      suggestions = {
-        items: ["=", "!=", "like", "is in", "is not in"],
-        type: Array(5).fill("operator_string"),
-      };
-      break;
-    case "category_number":
-      suggestions = {
-        items: ["=", "!=", "<", ">", "is in", "is not in", "like"],
-        type: Array(7).fill("operator_number"),
-      };
-      break;
-    case "category_boolean":
-      suggestions = {
-        items: ["=", "!="],
-        type: Array(2).fill("operator_bool"),
-      };
-      break;
-    case "category_date":
-      suggestions = {
-        items: ["<", ">", "in the last"],
-        type: Array(3).fill("operator_date"),
-      };
-      break;
-    case "category":
-      suggestions = {
-        items: ["=", "!=", ">", "<", "like"],
-        type: Array(5).fill("operator"),
-      };
-      break;
-    default:
-      suggestions = {
-        items: [],
-        type: [],
-      };
-  }
-  return suggestions;
-}
-
-/**
- *
  * @param focusedTokenIndex The index of the focused token, or null if no token is focused.
  * The structure is { equationIndex: number, tokenIndex: number }.
  * @param tokenEquations The list of token equations.
@@ -313,6 +175,7 @@ export function getPreviousEquationAndToken(
       previousEquation.items[previousEquation.items.length - 1] || undefined;
     return { previousEquation, previousToken };
   }
+  // else
   const lastEquation =
     tokenEquations.length > 0
       ? tokenEquations[tokenEquations.length - 1]
@@ -320,29 +183,6 @@ export function getPreviousEquationAndToken(
   const lastToken = lastEquation?.items[lastEquation.items.length - 1];
 
   return { previousEquation: lastEquation, previousToken: lastToken };
-}
-
-/**
- * Transforms a given identifier into a human-readable format
- *
- * @param identifier The identifier to be converted
- * @returns The human-readable text
- */
-export function getHumanReadableText(identifier: string | string[]): string {
-  const identifierArray = Array.isArray(identifier) ? identifier : [identifier];
-
-  // Handle snake_case: replace underscores with spaces
-  // Handle kebab-case: replace hyphens with spaces
-  let result = identifierArray.map((arg: string) => arg.replace(/_|-/g, " "));
-
-  // Handle camelCase and PascalCase
-  // Insert a space before an uppercase letter that follows a lowercase letter
-  result = result.map((arg) => arg.replace(/([a-z])([A-Z])/g, "$1 $2"));
-
-  // Capitalize the first letter of each word
-  result = result.map((arg) => arg.replace(/\b\w/g, (c) => c.toUpperCase()));
-
-  return convertListToString(result);
 }
 
 export function DisplayTokenEquation({
@@ -391,6 +231,10 @@ export function DisplayTokenEquation({
           ) {
             return DynamicSearchField;
           }
+          let buttonLabel = token.label;
+          if (typeof token.label !== "string") {
+            buttonLabel = convertListToString(token.label);
+          }
           return (
             <Button
               sx={{
@@ -403,7 +247,7 @@ export function DisplayTokenEquation({
                 handleRightClick();
               }}
             >
-              {getHumanReadableText(token.label)}
+              {buttonLabel}
             </Button>
           );
         })}
@@ -446,12 +290,13 @@ export function convertListToString(labelList: string[] | string): string {
   return labelList;
 }
 
-export function convertFilterToTokenEquation(
+export async function convertFilterToTokenEquation(
   filter: InternalFilter,
-  data: JobSummary[],
-  exceptCategories: string[] = [],
-  additionalCategories: SearchBarSuggestions,
-): SearchBarTokenEquation {
+  createSuggestions: (
+    previousToken: SearchBarToken | undefined,
+    previousEquation: SearchBarTokenEquation | undefined,
+  ) => Promise<SearchBarSuggestions>,
+): Promise<SearchBarTokenEquation> {
   const operators = {
     eq: "=",
     neq: "!=",
@@ -475,23 +320,15 @@ export function convertFilterToTokenEquation(
     status: "valid",
   };
 
-  const suggestions_cat = createSuggestions(
-    undefined,
-    undefined,
-    data,
-    exceptCategories,
-    additionalCategories,
-  );
+  const suggestions_cat = await createSuggestions(undefined, undefined);
 
   newEquation.items[0].type =
     suggestions_cat.type[suggestions_cat.items.indexOf(filter.parameter)] ||
     "category";
 
-  const suggestions_op = createSuggestions(
+  const suggestions_op = await createSuggestions(
     newEquation.items[0],
     newEquation,
-    data,
-    exceptCategories,
   );
 
   newEquation.items[1].type =
@@ -501,11 +338,9 @@ export function convertFilterToTokenEquation(
       )
     ] || "operator";
 
-  const suggestions_value = createSuggestions(
+  const suggestions_value = await createSuggestions(
     newEquation.items[1],
     newEquation,
-    data,
-    exceptCategories,
   );
 
   newEquation.items[1].suggestions = suggestions_op;

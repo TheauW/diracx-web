@@ -1,39 +1,18 @@
 import { Meta, StoryObj } from "@storybook/react";
-import { useState } from "react";
+import React, { useState } from "react";
 import { Paper } from "@mui/material";
 import { action } from "@storybook/addon-actions";
 import {
   SearchBar,
   SearchBarProps,
 } from "../src/components/shared/SearchBar/SearchBar";
-import { InternalFilter } from "../src/types";
-import { Data } from "../src/components/shared/SearchBar/Types";
+import {
+  InternalFilter,
+  SearchBarToken,
+  SearchBarTokenEquation,
+  SearchBarSuggestions,
+} from "../src/types";
 import { ThemeProvider } from "../src/contexts/ThemeProvider";
-
-// Données d'exemple pour les suggestions
-const sampleData: Data[] = [
-  {
-    JobID: "12345",
-    Status: "Running",
-    Owner: "alice",
-    Priority: 10,
-    Site: "CERN",
-  },
-  {
-    JobID: "67890",
-    Status: "Completed",
-    Owner: "bob",
-    Priority: 5,
-    Site: "GridKa",
-  },
-  {
-    JobID: "11111",
-    Status: "Failed",
-    Owner: "charlie",
-    Priority: 7,
-    Site: "IN2P3",
-  },
-];
 
 // Exemples d'équations de tokens
 const sampleFilters: InternalFilter[] = [
@@ -50,6 +29,77 @@ const sampleFilters: InternalFilter[] = [
     values: ["Running", "Completed"],
   },
 ];
+
+const createSuggestions = async (
+  previousToken: SearchBarToken | undefined,
+  previousEquation: SearchBarTokenEquation | undefined,
+): Promise<SearchBarSuggestions> => {
+  // Simulate fetching suggestions based on the previous token and equation
+  if (
+    !previousToken ||
+    !previousEquation ||
+    previousToken.type.startsWith("custom") ||
+    previousToken.type.startsWith("value")
+  )
+    return {
+      items: [
+        "JobID",
+        "Status",
+        "Site",
+        "JobType",
+        "JobGroup",
+        "UserPriority",
+        "RescheduleCounter",
+      ],
+      type: [
+        "category_string",
+        "category_string",
+        "category_string",
+        "category_string",
+        "category_string",
+        "category_string",
+        "category_string",
+      ],
+    };
+
+  if (previousToken.type.startsWith("category"))
+    return {
+      items: ["=", "!=", "in", "not in", "like", "<", ">"],
+      type: Array(50).fill("operator_string"),
+    };
+
+  let items: string[] = [];
+  switch (previousEquation.items[0].label) {
+    case "JobID":
+      items = ["12345", "67890", "54321"];
+      break;
+    case "Status":
+      items = ["Running", "Completed", "Failed", "Pending"];
+      break;
+    case "Site":
+      items = ["Site A", "Site B", "Site C"];
+      break;
+    case "JobType":
+      items = ["Type A", "Type B", "Type C"];
+      break;
+    case "JobGroup":
+      items = ["Group A", "Group B", "Group C"];
+      break;
+    case "UserPriority":
+      items = ["1", "2", "3"];
+      break;
+    case "RescheduleCounter":
+      items = ["0", "1", "2"];
+      break;
+    default:
+      items = [];
+  }
+
+  return {
+    items: items,
+    type: Array(items.length).fill("value"),
+  };
+};
 
 const meta: Meta<SearchBarProps> = {
   title: "shared/SearchBar",
@@ -71,44 +121,40 @@ const meta: Meta<SearchBarProps> = {
         type: { summary: "function" },
       },
     },
-    data: {
-      description: "`array` of data to be used for suggestions",
-      table: {
-        type: { summary: "Data[]" },
-      },
+    createSuggestions: {
+      description: `Asynchronous function used to generate suggestion items in the search bar.
+
+#### Parameters:
+- \`previousToken\` *(optional)*: the token currently selected by the user (e.g. a category or operator).
+- \`previousEquation\` *(optional)*: the full list of tokens entered before, used to provide context-aware suggestions.
+
+#### Returns:
+- A promise that resolves to a \`SearchBarSuggestions\` object containing the suggested items and their types.
+
+#### Signature:`,
     },
     searchFunction: {
-      description: "`function` to call when the search is performed (optional)",
-      table: {
-        type: { summary: "function" },
-      },
+      description: `Optional function triggered when the search is executed.
+
+#### Parameters:
+- \`equations\`: An array of \`SearchBarTokenEquation\` representing the user's search query, fully parsed into tokens.
+- \`setFilters\`: A React state setter used to update the internal filters based on the equations.
+
+#### Notes:
+- You can use this function to transform the search expression into an internal filter format used by your application.
+- This function is optional — if not provided, the search bar will use a default function that converts the equations to internal filters.
+
+#### Signature:`,
     },
     clearFunction: {
-      description: "`function` to call when the search is cleared (optional)",
-      table: {
-        type: { summary: "function" },
-      },
+      description: `\`function\` to call when the search is cleared
+      
+#### Signature:`,
     },
     allowKeyWordSearch: {
       control: { type: "boolean" },
       description: "`boolean` to allow keyword search or not",
       defaultValue: true,
-    },
-    exceptCategories: {
-      description:
-        "`array` of categories to exclude from the search suggestions",
-      table: {
-        type: { summary: "string[]" },
-      },
-      defaultValue: [],
-    },
-    additionalCategories: {
-      description:
-        "`array` of additional categories to include in the suggestions",
-      table: {
-        type: { summary: "string[]" },
-      },
-      defaultValue: [],
     },
   },
   decorators: [
@@ -128,29 +174,17 @@ type Story = StoryObj<SearchBarProps>;
 export const Default: Story = {
   args: {
     filters: [],
-    data: sampleData,
   },
   render: (args) => {
     const [filters, setFilters] = useState<InternalFilter[]>(args.filters);
 
     return (
-      <SearchBar filters={filters} setFilters={setFilters} data={sampleData} />
+      <SearchBar
+        filters={filters}
+        setFilters={setFilters}
+        createSuggestions={createSuggestions}
+      />
     );
-  },
-};
-
-export const WithSampleData: Story = {
-  args: {
-    filters: [],
-    setFilters: action("setFilters"),
-    data: sampleData,
-    searchFunction: action("searchTriggered"),
-    allowKeyWordSearch: true,
-  },
-  render: (args) => {
-    const [filters, setFilters] = useState<InternalFilter[]>(args.filters);
-
-    return <SearchBar {...args} filters={filters} setFilters={setFilters} />;
   },
 };
 
@@ -158,7 +192,6 @@ export const WithPrefilledTokens: Story = {
   args: {
     filters: sampleFilters,
     setFilters: action("setFilters"),
-    data: sampleData,
     searchFunction: action("searchTriggered"),
     allowKeyWordSearch: true,
   },
@@ -168,9 +201,9 @@ export const WithPrefilledTokens: Story = {
     return (
       <SearchBar
         {...args}
-        // data={args.data}
         filters={filters}
         setFilters={setFilters}
+        createSuggestions={createSuggestions}
       />
     );
   },
@@ -180,39 +213,8 @@ export const NoKeywordSearch: Story = {
   args: {
     filters: [],
     setFilters: action("setFilters"),
-    data: sampleData,
     searchFunction: action("searchTriggered"),
     allowKeyWordSearch: false,
-  },
-  render: (args) => {
-    const [filters, setFilters] = useState<InternalFilter[]>(args.filters);
-
-    return <SearchBar {...args} filters={filters} setFilters={setFilters} />;
-  },
-};
-
-export const EmptyData: Story = {
-  args: {
-    filters: [],
-    setFilters: action("setFilters"),
-    data: [],
-    searchFunction: action("searchTriggered"),
-    allowKeyWordSearch: true,
-  },
-  render: (args) => {
-    const [filters, setFilters] = useState<InternalFilter[]>(args.filters);
-
-    return <SearchBar {...args} filters={filters} setFilters={setFilters} />;
-  },
-};
-
-export const AdditionalCategories: Story = {
-  args: {
-    filters: [],
-    setFilters: action("setFilters"),
-    data: sampleData,
-    searchFunction: action("searchTriggered"),
-    allowKeyWordSearch: true,
   },
   render: (args) => {
     const [filters, setFilters] = useState<InternalFilter[]>(args.filters);
@@ -222,11 +224,45 @@ export const AdditionalCategories: Story = {
         {...args}
         filters={filters}
         setFilters={setFilters}
-        additionalCategories={{
-          items: ["Custom Category 1 (string)", "Custom Category 2 (number)"],
-          type: ["category_string", "category_number"],
-        }}
+        createSuggestions={createSuggestions}
       />
+    );
+  },
+};
+
+export const CustomClearFunction: Story = {
+  args: {
+    filters: [],
+    setFilters: action("setFilters"),
+    searchFunction: action("searchTriggered"),
+    clearFunction: (setFilters) => {
+      setFilters([]);
+      action("clearFunction")();
+    },
+    allowKeyWordSearch: false,
+  },
+  render: (args) => {
+    const [filters, setFilters] = useState<InternalFilter[]>(args.filters);
+
+    function customClearFunction(
+      _setFilters: React.Dispatch<React.SetStateAction<InternalFilter[]>>,
+      setTokenEquations: React.Dispatch<
+        React.SetStateAction<SearchBarTokenEquation[]>
+      >,
+    ) {
+      setTokenEquations((prev) => prev.filter((eq) => eq.status === "valid"));
+    }
+    return (
+      <>
+        <p>Remove only the invalid equations</p>
+        <SearchBar
+          {...args}
+          filters={filters}
+          setFilters={setFilters}
+          createSuggestions={createSuggestions}
+          clearFunction={customClearFunction}
+        />
+      </>
     );
   },
 };

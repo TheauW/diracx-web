@@ -8,15 +8,21 @@ import "@testing-library/jest-dom";
 const { Default, WithPrefilledTokens } = composeStories(stories);
 
 describe("SearchBar", () => {
-  it("renders the component", () => {
+  it("renders the component", async () => {
     render(<Default />);
-    expect(screen.getByPlaceholderText("Enter a category")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByPlaceholderText("Enter a category"),
+      ).toBeInTheDocument();
+    });
   });
 
-  it("renders with preffiled tokens", () => {
+  it("renders with preffiled tokens", async () => {
     render(<WithPrefilledTokens />);
-    expect(screen.getByText("12345")).toBeInTheDocument();
-    expect(screen.getByText("Running | Completed")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("12345")).toBeInTheDocument();
+      expect(screen.getByText("Running | Completed")).toBeInTheDocument();
+    });
   });
 
   it("shows autocomplete suggestions when clicking in search field", async () => {
@@ -86,10 +92,12 @@ describe("SearchBar", () => {
     render(<WithPrefilledTokens />);
 
     // Find and click on an existing token
-    const tokenButton = screen.getByText("12345");
-    await user.click(tokenButton);
+    await waitFor(() => {
+      const tokenButton = screen.getByText("12345");
+      user.click(tokenButton);
+    });
 
-    // Check if menu appears (this might need adjustment based on actual implementation)
+    // Check if menu appears
     await waitFor(
       () => {
         // Assuming the menu shows options for the token
@@ -100,12 +108,14 @@ describe("SearchBar", () => {
     );
   });
 
-  it("shows delete button when tokens exist", () => {
+  it("shows delete button when tokens exist", async () => {
     render(<WithPrefilledTokens />);
 
     // Check if delete button is present
-    const deleteButton = screen.getByTestId("DeleteIcon");
-    expect(deleteButton).toBeInTheDocument();
+    await waitFor(() => {
+      const deleteButton = screen.getByTestId("DeleteIcon");
+      expect(deleteButton).toBeInTheDocument();
+    });
   });
 
   it("removes all tokens when clicking delete button", async () => {
@@ -113,12 +123,14 @@ describe("SearchBar", () => {
     render(<WithPrefilledTokens />);
 
     // Verify tokens exist first
-    expect(screen.getByText("12345")).toBeInTheDocument();
-    expect(screen.getByText("Running | Completed")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("12345")).toBeInTheDocument();
+      expect(screen.getByText("Running | Completed")).toBeInTheDocument();
 
-    // Click delete button
-    const deleteButton = screen.getByTestId("DeleteIcon");
-    await user.click(deleteButton);
+      // Click delete button
+      const deleteButton = screen.getByTestId("DeleteIcon");
+      user.click(deleteButton);
+    });
 
     // Check if tokens are removed
     await waitFor(() => {

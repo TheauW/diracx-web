@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
 import { Box, Menu, MenuItem, IconButton } from "@mui/material";
 
@@ -6,16 +6,15 @@ import DeleteIcon from "@mui/icons-material/Delete";
 
 import {
   InternalFilter,
+  SearchBarToken,
   SearchBarTokenEquation,
   SearchBarSuggestions,
 } from "../../../types";
 
-import type { Data, EquationAndTokenIndex } from "./Types";
+import type { EquationAndTokenIndex } from "./Types";
 
 import {
-  getHumanReadableText,
   handleEquationsVerification,
-  createSuggestions,
   getPreviousEquationAndToken,
   DisplayTokenEquation,
   convertFilterToTokenEquation,
@@ -34,7 +33,10 @@ export interface SearchBarProps {
   // The function to set the filters
   setFilters: React.Dispatch<React.SetStateAction<InternalFilter[]>>;
   // The data to be used for suggestions
-  data: Data[];
+  createSuggestions: (
+    previousToken: SearchBarToken | undefined,
+    previousEquation: SearchBarTokenEquation | undefined,
+  ) => Promise<SearchBarSuggestions>;
   // The function to call when the search is performed (optional)
   searchFunction?: (
     equations: SearchBarTokenEquation[],
@@ -49,21 +51,15 @@ export interface SearchBarProps {
   ) => void;
   // Whether to allow keyword search or not (default is true)
   allowKeyWordSearch?: boolean;
-  // Categories to exclude from the search suggestions
-  exceptCategories?: string[];
-  // Additional categories to include in the suggestions
-  additionalCategories?: SearchBarSuggestions;
 }
 
 export function SearchBar({
   filters,
   setFilters,
-  data,
+  createSuggestions,
   searchFunction = convertAndApplyFilters,
   clearFunction = defaultClearFonction,
   allowKeyWordSearch = true,
-  exceptCategories = [],
-  additionalCategories = { items: [], type: [] },
 }: SearchBarProps) {
   const [inputValue, setInputValue] = useState("");
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -79,43 +75,39 @@ export function SearchBar({
 
   const [tokenEquations, setTokenEquations] = useState<
     SearchBarTokenEquation[]
-  >(() => {
-    const newTokenEquations =
-      filters.length === 0
-        ? []
-        : filters.map((filter) =>
-            convertFilterToTokenEquation(
-              filter,
-              data,
-              exceptCategories,
-              additionalCategories,
-            ),
-          );
-    return newTokenEquations;
+  >([]);
+
+  const [suggestions, setSuggestions] = useState<SearchBarSuggestions>({
+    items: [],
+    type: [],
   });
 
   const { previousEquation, previousToken } = getPreviousEquationAndToken(
     focusedTokenIndex,
     tokenEquations,
   );
+  useEffect(() => {
+    if (tokenEquations.length !== 0) return; // Avoid reloading if already loaded
+
+    async function load() {
+      const promises = filters.map(async (filter) =>
+        convertFilterToTokenEquation(filter, createSuggestions),
+      );
+      const newTokenEquations = await Promise.all(promises);
+      setTokenEquations(newTokenEquations);
+    }
+
+    if (filters.length !== 0 && tokenEquations.length === 0) load();
+  }, [filters, createSuggestions]);
+
   // Create a list of options based on the current tokens and data
-  const suggestions = useMemo(
-    () =>
-      createSuggestions(
-        previousToken,
-        previousEquation,
-        data,
-        exceptCategories,
-        additionalCategories,
-      ),
-    [
-      previousToken,
-      previousEquation,
-      data,
-      exceptCategories,
-      additionalCategories,
-    ],
-  );
+  useEffect(() => {
+    async function load() {
+      const result = await createSuggestions(previousToken, previousEquation);
+      setSuggestions(result);
+    }
+    load();
+  }, [previousEquation, previousToken, createSuggestions]);
 
   // Timer to delay the search function
   // This effect will trigger the searchFonction after a delay if the equations are valid
@@ -227,7 +219,7 @@ export function SearchBar({
     <Box
       onClick={() => inputRef.current?.focus()}
       sx={{
-        maxWidth: "100%",
+        width: 1,
         display: "flex",
         border: "1px solid",
         borderColor: "grey.400",
@@ -239,7 +231,7 @@ export function SearchBar({
       }}
       data-testid="search-bar"
     >
-      <Box sx={{ gap: 1, display: "flex", padding: 1, width: 1 }}>
+      <Box sx={{ gap: 1, display: "flex", padding: 1, width: 0.9 }}>
         {tokenEquations.map((equation, index) => (
           <DisplayTokenEquation
             key={index}
@@ -253,11 +245,12 @@ export function SearchBar({
               ])
             } // Remove the equation on right click
             equationIndex={index}
-            DynamicSearchField={DynamicSearchField}
+            DynamicSearchField={DynamicSearchField} // The dynamic search field can be in the middle of the equations
             focusedTokenIndex={focusedTokenIndex}
           />
         ))}
-        {!focusedTokenIndex && DynamicSearchField}
+        {!focusedTokenIndex && DynamicSearchField}{" "}
+        {/* Otherwise, the search field is at the end */}
         <Menu
           anchorEl={anchorEl}
           open={Boolean(anchorEl)}
@@ -271,7 +264,7 @@ export function SearchBar({
                   handleOptionSelect(option, currentSuggestions.type[idx])
                 }
               >
-                {getHumanReadableText(option)}
+                {option}
               </MenuItem>
             ))}
         </Menu>
