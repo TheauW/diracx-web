@@ -13,7 +13,18 @@ import {
   lime,
   amber,
 } from "@mui/material/colors";
-import { lighten, darken, useTheme, Box } from "@mui/material";
+
+import {
+  lighten,
+  darken,
+  useTheme,
+  Box,
+  ToggleButtonGroup,
+  ToggleButton,
+} from "@mui/material";
+
+import { TableChart, DonutSmall } from "@mui/icons-material";
+
 import {
   createColumnHelper,
   ColumnPinningState,
@@ -28,6 +39,7 @@ import { InternalFilter } from "../../types/Filter";
 import { Job, SearchBody } from "../../types";
 import { JobDataTable } from "./JobDataTable";
 import { JobSearchBar } from "./JobSearchBar";
+import { JobSunburst } from "./JobSunburst";
 
 /**
  * Build the Job Monitor application
@@ -95,6 +107,8 @@ export default function JobMonitor() {
           pageSize: 25,
         },
   );
+
+  const [chartType, setChartType] = useState("sunburst");
 
   // Save the state of the app in local storage
   useEffect(() => {
@@ -289,27 +303,40 @@ export default function JobMonitor() {
         overflow: "hidden",
       }}
     >
-      <JobSearchBar
-        filters={filters}
-        setFilters={setFilters}
-        searchBody={searchBody}
-        handleApplyFilters={handleApplyFilters}
-        columns={columns}
-      />
-      <JobDataTable
-        searchBody={searchBody}
-        setSearchBody={setSearchBody}
-        columns={columns}
-        pagination={pagination}
-        setPagination={setPagination}
-        columnVisibility={columnVisibility}
-        setColumnVisibility={setColumnVisibility}
-        columnPinning={columnPinning}
-        setColumnPinning={setColumnPinning}
-        rowSelection={rowSelection}
-        setRowSelection={setRowSelection}
-        statusColors={statusColors}
-      />
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "row",
+        }}
+      >
+        <JobSearchBar
+          filters={filters}
+          setFilters={setFilters}
+          searchBody={searchBody}
+          handleApplyFilters={handleApplyFilters}
+          columns={columns}
+        />
+        <PlotTypeSelector plotType={chartType} setPlotType={setChartType} />
+      </Box>
+
+      {chartType === "table" ? (
+        <JobDataTable
+          searchBody={searchBody}
+          setSearchBody={setSearchBody}
+          columns={columns}
+          pagination={pagination}
+          setPagination={setPagination}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+          columnPinning={columnPinning}
+          setColumnPinning={setColumnPinning}
+          rowSelection={rowSelection}
+          setRowSelection={setRowSelection}
+          statusColors={statusColors}
+        />
+      ) : (
+        <JobSunburst searchBody={searchBody} statusColors={statusColors} />
+      )}
     </Box>
   );
 }
@@ -375,4 +402,39 @@ export function fromHumanReadableText(
     return columns[index].id || name; // Return the id if it exists, otherwise
   }
   return name;
+}
+
+/**
+ * Component to select the type of plot
+ *
+ * @param plotType The type of the plot
+ * @param setPlotType The setter for the plot type
+ * @returns A list of buttons to select the type of plot
+ */
+export function PlotTypeSelector({
+  plotType,
+  setPlotType,
+}: {
+  plotType: string;
+  setPlotType: React.Dispatch<React.SetStateAction<string>>;
+}) {
+  return (
+    <>
+      <ToggleButtonGroup
+        value={plotType}
+        exclusive
+        onChange={(_event: React.MouseEvent, val: string) => {
+          if (val !== null) setPlotType(val);
+        }}
+        aria-label="text alignment"
+      >
+        <ToggleButton value="table" aria-label="left aligned">
+          <TableChart fontSize="large" />
+        </ToggleButton>
+        <ToggleButton value="sunburst" aria-label="centered">
+          <DonutSmall fontSize="large" />
+        </ToggleButton>
+      </ToggleButtonGroup>
+    </>
+  );
 }

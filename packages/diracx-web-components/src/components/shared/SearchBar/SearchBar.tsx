@@ -267,6 +267,7 @@ export function SearchBar({
       }}
       sx={{
         width: 1,
+        height: "auto",
         display: "flex",
         border: "1px solid",
         borderColor: "grey.400",
@@ -275,6 +276,7 @@ export function SearchBar({
         ":focus-within": {
           borderColor: "primary.main",
         },
+        alignItems: "center",
       }}
       data-testid="search-bar"
     >
