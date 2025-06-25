@@ -1,6 +1,10 @@
 import React from "react";
 
-import type { SearchBarTokenEquation, InternalFilter } from "../../../types";
+import {
+  SearchBarTokenEquation,
+  InternalFilter,
+  Operators,
+} from "../../../types";
 
 /**
  * Function to convert token equations to internal filters
@@ -11,20 +15,6 @@ export function convertAndApplyFilters(
   equations: SearchBarTokenEquation[],
   setFilters: React.Dispatch<React.SetStateAction<InternalFilter[]>>,
 ) {
-  /**
-   * Mapping of operator labels to internal filter operators.
-   */
-  const operators = {
-    "=": "eq",
-    "!=": "neq",
-    ">": "gt",
-    "<": "lt",
-    "is in": "in",
-    "is not in": "not in",
-    like: "like",
-    "in the last": "last",
-  };
-
   const newFilters: InternalFilter[] = [];
 
   let idCounter = Date.now();
@@ -52,7 +42,9 @@ export function convertAndApplyFilters(
       newFilters.push({
         id: idCounter++, // Generate a unique ID for each filter
         parameter: equation.items[0].label as string,
-        operator: operators[equation.items[1].label as keyof typeof operators],
+        operator: Operators.getInternalFromDisplay(
+          equation.items[1].label as string,
+        ),
         value: value,
         values: values,
       });

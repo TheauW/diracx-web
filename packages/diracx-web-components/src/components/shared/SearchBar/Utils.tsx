@@ -1,13 +1,12 @@
-import { Button, ButtonGroup, Box } from "@mui/material";
-
 import type {
   SearchBarTokenEquation,
   SearchBarToken,
   InternalFilter,
   SearchBarSuggestions,
+  EquationAndTokenIndex,
 } from "../../../types";
 
-import type { EquationAndTokenIndex } from "./Types";
+import { EquationStatus, Operators } from "../../../types";
 
 /**
  * @param tokenEquations The list of token equations to be verified.
@@ -24,10 +23,11 @@ export function handleEquationsVerification(
 
   if (
     tokenEquations.length > 0 &&
-    tokenEquations[tokenEquations.length - 1].status === "invalid" &&
+    tokenEquations[tokenEquations.length - 1].status ===
+      EquationStatus.INVALID &&
     tokenEquations[tokenEquations.length - 1].items.length < 3
   ) {
-    tokenEquations[tokenEquations.length - 1].status = "waiting";
+    tokenEquations[tokenEquations.length - 1].status = EquationStatus.WAITING;
   }
 
   setTokenEquations([...tokenEquations]);
@@ -40,24 +40,20 @@ export function handleEquationsVerification(
 function handleEquationVerification(
   tokenEquation: SearchBarTokenEquation,
 ): SearchBarTokenEquation {
-  const freeTextOperators = [
-    "like",
-    "not like",
-    "is in",
-    "is not in",
-    "in the last",
-    "<",
-    "<=",
-  ];
+  const freeTextOperators = Operators.getFreeTextOperators().map((operator) =>
+    operator.getDisplay(),
+  );
 
   if (tokenEquation.items.length === 1) {
     tokenEquation.status =
-      tokenEquation.items[0].type === "custom" ? "valid" : "invalid";
+      tokenEquation.items[0].type === "custom"
+        ? EquationStatus.VALID
+        : EquationStatus.INVALID;
     return tokenEquation;
   }
 
   if (tokenEquation.items.length !== 3) {
-    tokenEquation.status = "invalid";
+    tokenEquation.status = EquationStatus.INVALID;
     return tokenEquation;
   }
 
@@ -68,8 +64,8 @@ function handleEquationVerification(
         (tokenEquation.items[1].type === "operator_string" &&
           tokenEquation.items[2].type === "value")
       )
-        tokenEquation.status = "valid";
-      else tokenEquation.status = "invalid";
+        tokenEquation.status = EquationStatus.VALID;
+      else tokenEquation.status = EquationStatus.INVALID;
       break;
 
     case "category_number":
@@ -78,8 +74,8 @@ function handleEquationVerification(
         (tokenEquation.items[1].type === "operator_number" &&
           !Number.isNaN(Number(tokenEquation.items[2].label)))
       )
-        tokenEquation.status = "valid";
-      else tokenEquation.status = "invalid";
+        tokenEquation.status = EquationStatus.VALID;
+      else tokenEquation.status = EquationStatus.INVALID;
       break;
 
     case "category_boolean":
@@ -88,8 +84,8 @@ function handleEquationVerification(
         (tokenEquation.items[2].label === "true" ||
           tokenEquation.items[2].label === "false")
       )
-        tokenEquation.status = "valid";
-      else tokenEquation.status = "invalid";
+        tokenEquation.status = EquationStatus.VALID;
+      else tokenEquation.status = EquationStatus.INVALID;
       break;
 
     case "category_date":
@@ -101,7 +97,7 @@ function handleEquationVerification(
           tokenEquation.items[2].label as string,
         )
       )
-        tokenEquation.status = "valid";
+        tokenEquation.status = EquationStatus.VALID;
       else if (
         tokenEquation.items[1].label === "in the last" &&
         typeof tokenEquation.items[2].label == "string"
@@ -111,11 +107,11 @@ function handleEquationVerification(
 
         const match = tokenEquation.items[2].label.match(pattern);
         if (!match) {
-          tokenEquation.status = "invalid";
+          tokenEquation.status = EquationStatus.INVALID;
           return tokenEquation;
         }
 
-        if (match[1]) tokenEquation.status = "valid";
+        if (match[1]) tokenEquation.status = EquationStatus.VALID;
         else {
           const quantity = parseInt(match[2], 10);
           const unit = match[3];
@@ -137,7 +133,8 @@ function handleEquationVerification(
                 return 0;
             }
           })();
-          tokenEquation.status = years < 2025 ? "valid" : "invalid";
+          tokenEquation.status =
+            years < 2025 ? EquationStatus.VALID : EquationStatus.INVALID;
         }
       }
   }
@@ -158,9 +155,10 @@ export function getPreviousEquationAndToken(
 ) {
   if (focusedTokenIndex) {
     if (focusedTokenIndex.tokenIndex > 0) {
-      const previousEquation = tokenEquations[focusedTokenIndex.equationIndex];
+      const previousEquation: SearchBarTokenEquation | undefined =
+        tokenEquations[focusedTokenIndex.equationIndex];
       const previousToken =
-        previousEquation.items[focusedTokenIndex.tokenIndex - 1];
+        previousEquation?.items[focusedTokenIndex.tokenIndex - 1];
       return { previousEquation, previousToken };
     }
     if (
@@ -169,6 +167,7 @@ export function getPreviousEquationAndToken(
     ) {
       return { previousEquation: undefined, previousToken: undefined };
     }
+    // else
     const previousEquation =
       tokenEquations[focusedTokenIndex.equationIndex - 1] || undefined;
     const previousToken =
@@ -185,79 +184,11 @@ export function getPreviousEquationAndToken(
   return { previousEquation: lastEquation, previousToken: lastToken };
 }
 
-export function DisplayTokenEquation({
-  tokensEquation,
-  handleClick,
-  handleRightClick,
-  equationIndex,
-  DynamicSearchField,
-  focusedTokenIndex,
-}: {
-  tokensEquation: SearchBarTokenEquation;
-  handleClick: (
-    e: React.MouseEvent<HTMLButtonElement>,
-    tokenIndex: number,
-  ) => void;
-  handleRightClick: () => void;
-  equationIndex: number;
-  DynamicSearchField: React.ReactNode;
-  focusedTokenIndex: EquationAndTokenIndex | null;
-}) {
-  const tokens = tokensEquation.items;
-
-  const buttonColor =
-    tokensEquation.status === "valid"
-      ? "green"
-      : tokensEquation.status === "invalid"
-        ? "red"
-        : tokensEquation.status === "waiting"
-          ? "orange"
-          : "grey";
-
-  return (
-    <Box>
-      <ButtonGroup
-        variant="outlined"
-        sx={{
-          "& .MuiButtonGroup-grouped": {
-            borderColor: buttonColor,
-          },
-        }}
-      >
-        {tokens.map((token, tokenIndex) => {
-          if (
-            equationIndex === focusedTokenIndex?.equationIndex &&
-            tokenIndex === focusedTokenIndex.tokenIndex
-          ) {
-            return DynamicSearchField;
-          }
-          let buttonLabel = token.label;
-          if (typeof token.label !== "string") {
-            buttonLabel = convertListToString(token.label);
-          }
-          return (
-            <Button
-              sx={{
-                color: buttonColor,
-              }}
-              key={tokenIndex}
-              onClick={(e) => handleClick(e, tokenIndex)}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                handleRightClick();
-              }}
-            >
-              {buttonLabel}
-            </Button>
-          );
-        })}
-      </ButtonGroup>
-    </Box>
-  );
-}
-
 /**
  * Returns the type of a token based on the previous token and equation.
+ * @param value The value of the token to be checked.
+ * @param suggestions The suggestions object containing items and their types.
+ * @param lastToken The last token in the equation, which can be undefined
  * @returns The type of the token, which can be "custom", "value", "operator", "custom_value", or a category type.
  */
 export function getTokenType(
@@ -292,59 +223,57 @@ export function convertListToString(labelList: string[] | string): string {
 
 export async function convertFilterToTokenEquation(
   filter: InternalFilter,
+  filterIndex: number,
   createSuggestions: (
     previousToken: SearchBarToken | undefined,
     previousEquation: SearchBarTokenEquation | undefined,
+    filterIndex?: number,
   ) => Promise<SearchBarSuggestions>,
 ): Promise<SearchBarTokenEquation> {
-  const operators = {
-    eq: "=",
-    neq: "!=",
-    gt: ">",
-    lt: "<",
-    in: "is in",
-    "not in": "is not in",
-    like: "like",
-    last: "in the last",
-  };
-
   const newEquation: SearchBarTokenEquation = {
     items: [
       { label: filter.parameter, type: "category" },
       {
-        label: operators[filter.operator as keyof typeof operators],
+        label: Operators.getDisplayFromInternal(filter.operator),
         type: "operator",
       },
       { label: filter.value || filter.values || "", type: "value" },
     ],
-    status: "valid",
+    status: EquationStatus.VALID,
   };
 
-  const suggestions_cat = await createSuggestions(undefined, undefined);
+  const suggestions_categories = await createSuggestions(
+    undefined,
+    undefined,
+    filterIndex,
+  );
 
   newEquation.items[0].type =
-    suggestions_cat.type[suggestions_cat.items.indexOf(filter.parameter)] ||
-    "category";
+    suggestions_categories.type[
+      suggestions_categories.items.indexOf(filter.parameter)
+    ] || "category";
 
-  const suggestions_op = await createSuggestions(
+  const suggestions_operators = await createSuggestions(
     newEquation.items[0],
     newEquation,
+    filterIndex,
   );
 
   newEquation.items[1].type =
-    suggestions_op.type[
-      suggestions_op.items.indexOf(
-        operators[filter.operator as keyof typeof operators],
+    suggestions_operators.type[
+      suggestions_operators.items.indexOf(
+        Operators.getDisplayFromInternal(filter.operator),
       )
     ] || "operator";
 
-  const suggestions_value = await createSuggestions(
+  const suggestions_values = await createSuggestions(
     newEquation.items[1],
     newEquation,
+    filterIndex,
   );
 
-  newEquation.items[1].suggestions = suggestions_op;
-  newEquation.items[2].suggestions = suggestions_value;
+  newEquation.items[1].suggestions = suggestions_operators;
+  newEquation.items[2].suggestions = suggestions_values;
 
   return newEquation;
 }

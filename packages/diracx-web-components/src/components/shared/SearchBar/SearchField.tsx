@@ -2,12 +2,15 @@ import { useState, useRef, useEffect } from "react";
 
 import { Autocomplete, TextField } from "@mui/material";
 
+import dayjs, { Dayjs } from "dayjs";
+
 import type {
   SearchBarTokenEquation,
   SearchBarSuggestions,
+  EquationAndTokenIndex,
 } from "../../../types";
 
-import { EquationAndTokenIndex } from "./Types";
+import { EquationStatus, Operators } from "../../../types";
 
 import {
   getPreviousEquationAndToken,
@@ -15,6 +18,10 @@ import {
   getTokenType,
   convertListToString,
 } from "./Utils";
+
+import "dayjs/locale/en-gb"; // Import the locale for dayjs
+
+import { MyDateTimePicker } from "./DatePicker";
 
 interface SearchFieldProps {
   inputValue: string;
@@ -49,6 +56,8 @@ export default function SearchField({
     tokenEquations,
   );
   const [placeholder, setPlaceholder] = useState<string>("");
+
+  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
 
   useEffect(() => {
     setPlaceholder(
@@ -87,25 +96,30 @@ export default function SearchField({
           suggestions: !type.startsWith("category") ? suggestions : undefined,
         };
         updatedTokens[equationIndex].status =
-          type === "value" ? "valid" : "invalid";
+          type === "value" ? EquationStatus.VALID : EquationStatus.INVALID;
         handleEquationsVerification(updatedTokens, setTokenEquations);
       }
       setFocusedTokenIndex(null);
     } else {
       // If no token is focused, create a new token
 
-      if (previousEquation && previousEquation.status === "waiting") {
+      if (
+        previousEquation &&
+        previousEquation.status === EquationStatus.WAITING
+      ) {
         previousEquation.items.push({
           label: formatedLabel,
           type: type,
           suggestions: suggestions,
         });
-        previousEquation.status = type === "value" ? "valid" : "invalid";
+        previousEquation.status =
+          type === "value" ? EquationStatus.VALID : EquationStatus.INVALID;
         handleEquationsVerification([...tokenEquations], setTokenEquations);
       } else {
         // We are creating a new equation
         const newLastEquation = {
-          status: type === "custom" ? "valid" : "waiting",
+          status:
+            type === "custom" ? EquationStatus.VALID : EquationStatus.WAITING,
           items: [
             {
               label: formatedLabel,
@@ -125,12 +139,17 @@ export default function SearchField({
 
   function handleArrowKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const input = inputRef.current;
+
     if (!input) return;
 
-    const cursorPosition = input.selectionStart || 0;
+    const isDatePicker =
+      previousToken?.type === "operator_date" &&
+      previousToken.label !== Operators.LAST.getDisplay();
 
-    const isAtLeftEdge = cursorPosition === 0;
-    const isAtRightEdge = cursorPosition === inputValue.length;
+    const isAtLeftEdge = input.selectionStart === 0;
+    const isAtRightEdge = isDatePicker
+      ? input.selectionEnd === 19 // Assuming that the date picker input has a fixed width of 19 characters
+      : input.selectionEnd === inputValue.length;
 
     let newFocusedTokenIndex: EquationAndTokenIndex | null = null;
 
@@ -204,6 +223,36 @@ export default function SearchField({
 
   // Calculate the width of the input field based on the input value length
   const width = Math.min(Math.max(inputValue.length * 8 + 50, 150), 800);
+
+  const handleDateChange = (newValue: Dayjs | null) => {
+    setSelectedDate(newValue);
+  };
+
+  const handleDateAccepted = (newValue: string | null) => {
+    if (newValue) {
+      try {
+        // Ensure the date is in ISO format for token creation
+        handleTokenCreation(newValue, "value");
+      } catch {}
+      setSelectedDate(null); // Reset the date picker after accepting the date
+    }
+  };
+
+  if (
+    previousToken?.type === "operator_date" &&
+    previousToken.label !== Operators.LAST.getDisplay()
+  ) {
+    if (selectedDate === null) setSelectedDate(dayjs(inputValue));
+    return (
+      <MyDateTimePicker
+        value={selectedDate}
+        onChange={handleDateChange}
+        onDateAccepted={handleDateAccepted}
+        handleArrowKeyDown={handleArrowKeyDown}
+        inputRef={inputRef}
+      />
+    );
+  }
 
   return (
     <Autocomplete

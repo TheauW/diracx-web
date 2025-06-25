@@ -11,6 +11,7 @@ import {
   SearchBarToken,
   SearchBarTokenEquation,
   SearchBarSuggestions,
+  EquationStatus,
 } from "../src/types";
 import { ThemeProvider } from "../src/contexts/ThemeProvider";
 
@@ -250,7 +251,9 @@ export const CustomClearFunction: Story = {
         React.SetStateAction<SearchBarTokenEquation[]>
       >,
     ) {
-      setTokenEquations((prev) => prev.filter((eq) => eq.status === "valid"));
+      setTokenEquations((prev) =>
+        prev.filter((eq) => eq.status === EquationStatus.VALID),
+      );
     }
     return (
       <>

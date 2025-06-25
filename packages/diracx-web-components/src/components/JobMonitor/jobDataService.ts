@@ -236,7 +236,7 @@ export async function getJobSummary(
   searchBody?: SearchBody,
 ): Promise<{ data: JobSummary[] }> {
   if (!diracxUrl) {
-    throw new Error("Invalid URL generated for fetching job history.");
+    throw new Error("Invalid URL generated for fetching job summary.");
   }
 
   if (searchBody) processSearchBody(searchBody);

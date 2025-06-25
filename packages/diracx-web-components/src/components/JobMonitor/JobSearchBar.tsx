@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-
+import { ColumnDef } from "@tanstack/react-table";
 import { useOidcAccessToken } from "@axa-fr/react-oidc";
 import { useOIDCContext } from "../../hooks/oidcConfiguration";
 import { useDiracxUrl } from "../../hooks/utils";
-
 import { SearchBar } from "../shared/SearchBar/SearchBar";
-
 import {
   InternalFilter,
   JobSummary,
@@ -15,10 +13,10 @@ import {
   SearchBarToken,
   SearchBarTokenEquation,
   SearchBody,
+  Job,
+  Operators,
 } from "../../types";
-
-import { getJobSummary } from "./JobDataService";
-
+import { getJobSummary } from "./jobDataService";
 import { fromHumanReadableText } from "./JobMonitor";
 
 interface JobSearchBarProps {
@@ -30,6 +28,9 @@ interface JobSearchBarProps {
   searchBody: SearchBody;
   /** The function to apply the filters */
   handleApplyFilters: () => void;
+  /** The columns to display in the job monitor */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  columns: ColumnDef<Job, any>[];
 }
 
 export function JobSearchBar({
@@ -37,6 +38,7 @@ export function JobSearchBar({
   searchBody,
   setFilters,
   handleApplyFilters,
+  columns,
 }: JobSearchBarProps) {
   const { configuration } = useOIDCContext();
   const { accessToken } = useOidcAccessToken(configuration?.scope);
@@ -59,13 +61,16 @@ export function JobSearchBar({
       createSuggestions={(
         previousToken: SearchBarToken | undefined,
         previousEquation: SearchBarTokenEquation | undefined,
+        equationIndex?: number,
       ) =>
         createSuggestions(
           diracxUrl,
           accessToken,
           previousToken,
           previousEquation,
+          columns,
           searchBody,
+          equationIndex,
         )
       }
       allowKeyWordSearch={false} // Disable keyword search for job monitor
@@ -77,9 +82,13 @@ export function JobSearchBar({
  * Creates suggestions for the search bar based on the current tokens
  * If necessary, it fetches job summaries from the server to get personalized suggestions
  *
+ * @param diracxUrl The URL of the DiracX server.
+ * @param accessToken The access token for authentication, which can be undefined if not authenticated.
  * @param previousToken The previous token, which can be undefined if no token is focused.
  * @param previousEquation The previous equation, which can be undefined if no equation is focused.
- * @param data The data to be used for suggestions.
+ * @param columns The columns to be used for suggestions, which are used to determine the categories and types.
+ * @param searchBody The search body to be sent along with the request (optional).
+ * @param searchBodyIndex The index of the search body, which is used to determine the current search context (optional).
  * @returns A list of suggestions based on the current tokens and data.
  */
 async function createSuggestions(
@@ -87,9 +96,19 @@ async function createSuggestions(
   accessToken: string | undefined,
   previousToken: SearchBarToken | undefined,
   previousEquation: SearchBarTokenEquation | undefined,
-  searchBody?: SearchBody,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  columns: ColumnDef<Job, any>[],
+  searchBody: SearchBody,
+  searchBodyIndex?: number,
 ): Promise<SearchBarSuggestions> {
   let data: JobSummary[] = [];
+
+  const search = [...(searchBody?.search || [])];
+
+  const newSearchBody = {
+    ...searchBody,
+    search: search.slice(0, searchBodyIndex),
+  };
 
   const fetchJobSummary = async (category: string) => {
     if (diracxUrl && accessToken) {
@@ -98,11 +117,11 @@ async function createSuggestions(
           diracxUrl,
           [category],
           accessToken,
-          searchBody,
+          newSearchBody,
         );
         data = result.data || [];
       } catch {
-        console.error("Failed to fetch job summary");
+        throw new Error("Failed to fetch job summary");
       }
     }
   };
@@ -114,48 +133,14 @@ async function createSuggestions(
     previousToken.type.startsWith("custom") ||
     previousToken.type === "value"
   ) {
-    // The categories to filter by and their types
+    const items = columns.map((column) => column.header as string);
+    const types = columns.map(
+      (column) => `category_${column.meta?.type || "string"}`,
+    );
+
     return {
-      items: [
-        "Status",
-        "Minor Status",
-        "Application Status",
-        "Site",
-        "Type",
-        "Job Group",
-        "Owner",
-        "Owner Group",
-        "VO",
-        "User Priority",
-        "Reschedule Counter",
-        "ID",
-        "Submission Time",
-        "Last Update Time",
-        "Start Execution Time",
-        "Last Sign of Life",
-        "End Execution Time",
-        "Name",
-      ],
-      type: [
-        "category_string",
-        "category_string",
-        "category_string",
-        "category_string",
-        "category_string",
-        "category_string",
-        "category_string",
-        "category_string",
-        "category_string",
-        "category_number",
-        "category_number",
-        "category_number",
-        "category_date",
-        "category_date",
-        "category_date",
-        "category_date",
-        "category_date",
-        "category_string",
-      ],
+      items: items,
+      type: types,
     };
   }
 
@@ -164,6 +149,7 @@ async function createSuggestions(
     // Load the suggestions for the selected category
     const category = fromHumanReadableText(
       previousEquation.items[0].label as string,
+      columns,
     );
     await fetchJobSummary(category);
     const items = data.map(
@@ -188,47 +174,44 @@ async function createSuggestions(
   }
 
   // else
-  let suggestions: { items: string[]; type: string[] } = {
-    items: [],
-    type: [],
-  };
+  let items: string[] = [];
   switch (previousToken.type) {
     case "category_string":
-      suggestions = {
-        items: ["=", "!=", "like", "is in", "is not in"],
-        type: Array(5).fill("operator_string"),
+      items = Operators.getStringOperators().map((op) => op.getDisplay());
+      return {
+        items: items,
+        type: Array(items.length).fill("operator_string"),
       };
-      break;
     case "category_number":
-      suggestions = {
-        items: ["=", "!=", "<", ">", "is in", "is not in", "like"],
-        type: Array(7).fill("operator_number"),
+      items = Operators.getNumberOperators().map((op) => op.getDisplay());
+      return {
+        items: items,
+        type: Array(items.length).fill("operator_number"),
       };
-      break;
     case "category_boolean":
-      suggestions = {
-        items: ["=", "!="],
-        type: Array(2).fill("operator_bool"),
+      items = Operators.getBooleanOperators().map((op) => op.getDisplay());
+      return {
+        items: items,
+        type: Array(items.length).fill("operator_bool"),
       };
-      break;
     case "category_date":
-      suggestions = {
-        items: ["<", ">", "in the last"],
-        type: Array(3).fill("operator_date"),
+      items = Operators.getDateOperators().map((op) => op.getDisplay());
+      return {
+        items: items,
+        type: Array(items.length).fill("operator_date"),
       };
-      break;
     case "category":
-      suggestions = {
-        items: ["=", "!=", ">", "<", "like"],
-        type: Array(5).fill("operator"),
+      items = Operators.getDefaultOperators().map((op) => op.getDisplay());
+      return {
+        items: items,
+        type: Array(items.length).fill("operator"),
       };
-      break;
+
     // We don't want suggestions for the number and in case of a custom token
     default:
-      suggestions = {
+      return {
         items: [],
         type: [],
       };
   }
-  return suggestions;
 }

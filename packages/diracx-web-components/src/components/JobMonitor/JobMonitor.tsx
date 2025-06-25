@@ -20,6 +20,7 @@ import {
   RowSelectionState,
   VisibilityState,
   PaginationState,
+  ColumnDef,
 } from "@tanstack/react-table";
 
 import { useApplicationId } from "../../hooks/application";
@@ -126,7 +127,7 @@ export default function JobMonitor() {
     setSearchBody((prev) => ({
       ...prev,
       search: filters.map(({ parameter, operator, value, values }) => ({
-        parameter: fromHumanReadableText(parameter),
+        parameter: fromHumanReadableText(parameter, columns),
         operator,
         value,
         values,
@@ -202,7 +203,7 @@ export default function JobMonitor() {
         id: "Status",
         header: "Status",
         cell: (info) => renderStatusCell(info.getValue()),
-        meta: { type: "category", values: Object.keys(statusColors).sort() },
+        meta: { type: "string", values: Object.keys(statusColors).sort() },
       }),
       columnHelper.accessor("MinorStatus", {
         id: "MinorStatus",
@@ -270,6 +271,11 @@ export default function JobMonitor() {
         header: "User Priority",
         meta: { type: "number" },
       }),
+      columnHelper.accessor("RescheduleCounter", {
+        id: "RescheduleCounter",
+        header: "Reschedule Counter",
+        meta: { type: "number" },
+      }),
     ],
     [columnHelper, renderStatusCell, statusColors],
   );
@@ -288,6 +294,7 @@ export default function JobMonitor() {
         setFilters={setFilters}
         searchBody={searchBody}
         handleApplyFilters={handleApplyFilters}
+        columns={columns}
       />
       <JobDataTable
         searchBody={searchBody}
@@ -358,35 +365,14 @@ export function validateAndConvertState(state: string): [string, boolean] {
  * @param name - The human-readable name of the job attribute
  * @returns The corresponding internal name of the job attribute
  */
-export function fromHumanReadableText(name: string): string {
-  switch (name) {
-    case "ID":
-      return "JobID";
-    case "Minor Status":
-      return "MinorStatus";
-    case "Application Status":
-      return "ApplicationStatus";
-    case "Name":
-      return "JobName";
-    case "Job Group":
-      return "JobGroup";
-    case "Type":
-      return "JobType";
-    case "Last Update Time":
-      return "LastUpdateTime";
-    case "Last Sign of Life":
-      return "HeartBeatTime";
-    case "Submission Time":
-      return "SubmissionTime";
-    case "Owner Group":
-      return "OwnerGroup";
-    case "Start Execution Time":
-      return "StartExecTime";
-    case "End Execution Time":
-      return "EndExecTime";
-    case "User Priority":
-      return "UserPriority";
-    default:
-      return name; // Return the original name if no match found
+export function fromHumanReadableText(
+  name: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  columns: ColumnDef<Job, any>[],
+): string {
+  const index = columns.findIndex((column) => column.header === name);
+  if (index !== -1) {
+    return columns[index].id || name; // Return the id if it exists, otherwise
   }
+  return name;
 }
