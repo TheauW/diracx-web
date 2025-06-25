@@ -9,16 +9,17 @@ import {
   SearchBarToken,
   SearchBarTokenEquation,
   SearchBarSuggestions,
+  EquationAndTokenIndex,
+  EquationStatus,
 } from "../../../types";
-
-import type { EquationAndTokenIndex } from "./Types";
 
 import {
   handleEquationsVerification,
   getPreviousEquationAndToken,
-  DisplayTokenEquation,
   convertFilterToTokenEquation,
 } from "./Utils";
+
+import { DisplayTokenEquation } from "./DisplayTokenEquation";
 
 import {
   convertAndApplyFilters,
@@ -36,6 +37,7 @@ export interface SearchBarProps {
   createSuggestions: (
     previousToken: SearchBarToken | undefined,
     previousEquation: SearchBarTokenEquation | undefined,
+    equationIndex?: number,
   ) => Promise<SearchBarSuggestions>;
   // The function to call when the search is performed (optional)
   searchFunction?: (
@@ -63,16 +65,15 @@ export function SearchBar({
 }: SearchBarProps) {
   const [inputValue, setInputValue] = useState("");
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [clickedTokenIndex, setClickedTokenIndex] = useState<{
-    equationIndex: number;
-    tokenIndex: number;
-  } | null>(null);
+  const [clickedTokenIndex, setClickedTokenIndex] =
+    useState<EquationAndTokenIndex | null>(null);
   const [focusedTokenIndex, setFocusedTokenIndex] =
     useState<EquationAndTokenIndex | null>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSearchedEquationsRef = useRef<string>("");
-
+  const lastClickedTokenIndexRef = useRef<string | null>(null);
   const [tokenEquations, setTokenEquations] = useState<
     SearchBarTokenEquation[]
   >([]);
@@ -86,12 +87,23 @@ export function SearchBar({
     focusedTokenIndex,
     tokenEquations,
   );
+
+  if (
+    previousEquation === undefined &&
+    focusedTokenIndex !== null &&
+    tokenEquations.length === 0
+  ) {
+    setFocusedTokenIndex(null);
+    setInputValue("");
+  }
+
+  // Effect to initialize the token equations from filters
   useEffect(() => {
     if (tokenEquations.length !== 0) return; // Avoid reloading if already loaded
 
     async function load() {
-      const promises = filters.map(async (filter) =>
-        convertFilterToTokenEquation(filter, createSuggestions),
+      const promises = filters.map(async (filter, filterIndex) =>
+        convertFilterToTokenEquation(filter, filterIndex, createSuggestions),
       );
       const newTokenEquations = await Promise.all(promises);
       setTokenEquations(newTokenEquations);
@@ -103,7 +115,11 @@ export function SearchBar({
   // Create a list of options based on the current tokens and data
   useEffect(() => {
     async function load() {
-      const result = await createSuggestions(previousToken, previousEquation);
+      const result = await createSuggestions(
+        previousToken,
+        previousEquation,
+        focusedTokenIndex?.equationIndex,
+      );
       setSuggestions(result);
     }
     load();
@@ -117,7 +133,7 @@ export function SearchBar({
     }
 
     const allEquationsValid = tokenEquations.every(
-      (eq) => eq.status === "valid",
+      (eq) => eq.status === EquationStatus.VALID,
     );
 
     const currentEquationsString = JSON.stringify(
@@ -144,6 +160,7 @@ export function SearchBar({
     };
   }, [tokenEquations, searchFunction, setFilters]);
 
+  // Always focus the input field
   useEffect(() => {
     inputRef.current?.focus();
   }, [focusedTokenIndex]);
@@ -205,8 +222,34 @@ export function SearchBar({
     />
   );
 
+  // Update the suggestions of the cliqued token if it exists
+  useEffect(() => {
+    async function updateSuggestions() {
+      if (
+        clickedTokenIndex === null ||
+        lastClickedTokenIndexRef.current === JSON.stringify(clickedTokenIndex)
+      )
+        return;
+      const { previousEquation, previousToken } = getPreviousEquationAndToken(
+        clickedTokenIndex,
+        tokenEquations,
+      );
+      tokenEquations[clickedTokenIndex.equationIndex].items[
+        clickedTokenIndex.tokenIndex
+      ].suggestions = await createSuggestions(
+        previousToken,
+        previousEquation,
+        clickedTokenIndex.equationIndex,
+      );
+
+      setTokenEquations([...tokenEquations]); // Update the state to trigger a re-render
+    }
+    updateSuggestions();
+    lastClickedTokenIndexRef.current = JSON.stringify(clickedTokenIndex);
+  }, [clickedTokenIndex, tokenEquations, createSuggestions]);
+
   /**
-   * The suggestions of the cliqued token.
+   * The suggestions of the cliqued token
    */
   const currentSuggestions =
     clickedTokenIndex !== null
@@ -217,7 +260,11 @@ export function SearchBar({
 
   return (
     <Box
-      onClick={() => inputRef.current?.focus()}
+      onClick={() => {
+        inputRef.current?.focus();
+        setFocusedTokenIndex(null);
+        setInputValue("");
+      }}
       sx={{
         width: 1,
         display: "flex",

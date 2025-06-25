@@ -19,10 +19,7 @@ describe("JobMonitor", () => {
 
     await waitFor(() => {
       expect(getByTestId("search-bar")).toBeInTheDocument();
-    });
-
-    // Verify job data is displayed
-    await waitFor(() => {
+      // Verify job data is displayed
       expect(getByText("List of Jobs")).toBeInTheDocument();
     });
   });

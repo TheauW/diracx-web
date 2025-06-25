@@ -2,7 +2,7 @@ import { StoryObj, Meta } from "@storybook/react";
 import { Box } from "@mui/material";
 import { ThemeProvider } from "../src/contexts/ThemeProvider";
 import JobMonitor from "../src/components/JobMonitor/JobMonitor";
-import { setJobsMock, setJobHistoryMock } from "./mocks/JobDataService.mock";
+import { setJobsMock, setJobHistoryMock } from "./mocks/jobDataService.mock";
 
 const meta = {
   title: "Job Monitor/JobMonitor",

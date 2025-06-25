@@ -243,25 +243,25 @@ describe("Job Monitor", () => {
   });
 
   it("should kill jobs", () => {
-    cy.get("[data-index=1]").click();
-    cy.get("[data-index=2]").click();
-    cy.get("[data-index=3]").click();
+    cy.get("[data-index=0]").click({ force: true });
+    cy.get("[data-index=1]").click({ force: true });
+    cy.get("[data-index=2]").click({ force: true });
 
     cy.get('[data-testid="ClearIcon"] > path').click();
 
     // Make sure the job status is "Killed"
-    cy.get("[data-index=1]").find("td").eq(2).should("contain", "Killed");
+    cy.get("[data-index=0]").find("td").eq(2).should("contain", "Killed");
+    cy.get("[data-index=1]").find("td").eq(2).should("contain.text", "Killed");
     cy.get("[data-index=2]").find("td").eq(2).should("contain.text", "Killed");
-    cy.get("[data-index=3]").find("td").eq(2).should("contain.text", "Killed");
   });
 
   it("should delete jobs", () => {
     cy.get("[data-index=1]").as("jobItem1");
     cy.get("[data-index=2]").as("jobItem2");
     cy.get("[data-index=3]").as("jobItem3");
-    cy.get("@jobItem1").click();
-    cy.get("@jobItem2").click();
-    cy.get("@jobItem3").click();
+    cy.get("@jobItem1").click({ force: true });
+    cy.get("@jobItem2").click({ force: true });
+    cy.get("@jobItem3").click({ force: true });
 
     cy.get('[data-testid="delete-jobs-button"] > path').click();
 
@@ -273,17 +273,17 @@ describe("Job Monitor", () => {
   });
 
   it("should reschedule jobs", () => {
-    cy.get("[data-index=1]").click();
-    cy.get("[data-index=2]").click();
-    cy.get("[data-index=3]").click();
+    cy.get("[data-index=1]").click({ force: true });
+    cy.get("[data-index=2]").click({ force: true });
+    cy.get("[data-index=3]").click({ force: true });
 
-    // cy.get('[data-testid="ReplayIcon"] > path').click();
-    cy.get('[aria-label="Reschedule"]').click();
+    cy.get('[data-testid="ReplayIcon"] > path').click({ force: true });
+    cy.get('[aria-label="Reschedule"]').click({ force: true });
 
     // Make sure the job status is "Received"
     cy.get("[data-index=1]").find("td").eq(2).should("contain", "Received");
-    cy.get("[data-index=1]").find("td").eq(2).should("contain", "Received");
-    cy.get("[data-index=1]").find("td").eq(2).should("contain", "Received");
+    cy.get("[data-index=2]").find("td").eq(2).should("contain", "Received");
+    cy.get("[data-index=3]").find("td").eq(2).should("contain", "Received");
   });
 
   /** Column interactions */
@@ -401,7 +401,7 @@ describe("Job Monitor", () => {
     cy.get("table").should("be.visible");
     cy.get("[data-testid=search-bar]");
 
-    cy.get("[data-testid=search-field]").type("JobID{enter}={enter}1{enter}");
+    cy.get("[data-testid=search-field]").type("ID{enter}={enter}1{enter}");
 
     cy.get('[role="group"]').find("button").should("have.length", 3);
   });
@@ -409,22 +409,18 @@ describe("Job Monitor", () => {
   it("should handle filter editing", () => {
     cy.get("table").should("be.visible");
 
-    cy.get("[data-testid=search-field]").type(
-      "JobName{enter}={enter}test{enter}",
-    );
+    cy.get("[data-testid=search-field]").type("Name{enter}={enter}test{enter}");
 
     cy.get("[data-testid=search-field]").type("{leftArrow}2{enter}");
-    cy.get('[role="group"]').find("button").contains("Test2").should("exist");
+    cy.get('[role="group"]').find("button").contains("test2").should("exist");
   });
 
   it("should handle filter clear", () => {
     cy.get("table").should("be.visible");
 
-    cy.get("[data-testid=search-field]").type(
-      "JobName{enter}={enter}test{enter}",
-    );
+    cy.get("[data-testid=search-field]").type("Name{enter}={enter}test{enter}");
 
-    cy.get("[data-testid=search-field]").type("JobID{enter}={enter}1{enter}");
+    cy.get("[data-testid=search-field]").type("ID{enter}={enter}1{enter}");
 
     cy.get('[role="group"]').find("button").should("have.length", 6);
 
@@ -446,11 +442,11 @@ describe("Job Monitor", () => {
         jobID = text.trim();
 
         cy.get("[data-testid=search-field]").type(
-          `JobID{enter}={enter}${jobID}{enter}`,
+          `ID{enter}={enter}${jobID}{enter}`,
         );
       });
     cy.get('[role="group"]').find("button").should("have.length", 3);
-    cy.get('[role="group"]').find("button").contains("Job ID").should("exist");
+    cy.get('[role="group"]').find("button").contains("ID").should("exist");
 
     cy.wait(1000);
 
@@ -460,7 +456,7 @@ describe("Job Monitor", () => {
   it("should handle filter apply and save filters in dashboard", () => {
     cy.get("table").should("be.visible");
 
-    cy.get("[data-testid=search-field]").type("JobID{enter}={enter}5{enter}");
+    cy.get("[data-testid=search-field]").type("ID{enter}={enter}5{enter}");
 
     cy.wait(1000);
 
@@ -478,7 +474,7 @@ describe("Job Monitor", () => {
   it("should control the in the last operator utilization", () => {
     cy.get("table").should("be.visible");
     cy.get("[data-testid=search-field]").type(
-      "SubmissionTime{enter}in the last{enter}4206942 years{enter}",
+      "Submission Time{enter}in the last{enter}4206942 years{enter}",
     );
 
     cy.wait(1000);

@@ -10,3 +10,6 @@ export * from "./SearchBarToken";
 export * from "./SearchBarEquation";
 export * from "./JobSummary";
 export * from "./SearchBarSuggestions";
+export * from "./EquationAndTokenIndex";
+export * from "./EquationStatus";
+export * from "./operators";

@@ -5,9 +5,10 @@ import { Autocomplete, TextField } from "@mui/material";
 import type {
   SearchBarTokenEquation,
   SearchBarSuggestions,
+  EquationAndTokenIndex,
 } from "../../../types";
 
-import { EquationAndTokenIndex } from "./Types";
+import { EquationStatus, Operators } from "../../../types";
 
 import {
   getPreviousEquationAndToken,
@@ -15,6 +16,10 @@ import {
   getTokenType,
   convertListToString,
 } from "./Utils";
+
+import "dayjs/locale/en-gb"; // Import the locale for dayjs
+
+import { MyDateTimePicker } from "./DatePicker";
 
 interface SearchFieldProps {
   inputValue: string;
@@ -87,25 +92,30 @@ export default function SearchField({
           suggestions: !type.startsWith("category") ? suggestions : undefined,
         };
         updatedTokens[equationIndex].status =
-          type === "value" ? "valid" : "invalid";
+          type === "value" ? EquationStatus.VALID : EquationStatus.INVALID;
         handleEquationsVerification(updatedTokens, setTokenEquations);
       }
       setFocusedTokenIndex(null);
     } else {
       // If no token is focused, create a new token
 
-      if (previousEquation && previousEquation.status === "waiting") {
+      if (
+        previousEquation &&
+        previousEquation.status === EquationStatus.WAITING
+      ) {
         previousEquation.items.push({
           label: formatedLabel,
           type: type,
           suggestions: suggestions,
         });
-        previousEquation.status = type === "value" ? "valid" : "invalid";
+        previousEquation.status =
+          type === "value" ? EquationStatus.VALID : EquationStatus.INVALID;
         handleEquationsVerification([...tokenEquations], setTokenEquations);
       } else {
         // We are creating a new equation
         const newLastEquation = {
-          status: type === "custom" ? "valid" : "waiting",
+          status:
+            type === "custom" ? EquationStatus.VALID : EquationStatus.WAITING,
           items: [
             {
               label: formatedLabel,
@@ -121,20 +131,29 @@ export default function SearchField({
       }
     }
     setInputValue("");
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
   }
 
   function handleArrowKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const input = inputRef.current;
+
     if (!input) return;
 
-    const cursorPosition = input.selectionStart || 0;
+    const isDatePicker =
+      previousToken?.type === "operator_date" &&
+      previousToken.label !== Operators.LAST.getDisplay();
 
-    const isAtLeftEdge = cursorPosition === 0;
-    const isAtRightEdge = cursorPosition === inputValue.length;
+    const isAtLeftEdge = input.selectionStart === 0;
+    const isAtRightEdge = isDatePicker
+      ? input.selectionEnd === 19 // Assuming that the date picker input has a fixed width of 19 characters
+      : input.selectionEnd === inputValue.length;
 
     let newFocusedTokenIndex: EquationAndTokenIndex | null = null;
 
     if (e.key === "ArrowLeft" && isAtLeftEdge && tokenEquations.length > 0) {
+      e.preventDefault();
       if (focusedTokenIndex === null) {
         // If no token is focused, focus the last token
         newFocusedTokenIndex = {
@@ -194,16 +213,53 @@ export default function SearchField({
       );
 
       setFocusedTokenIndex(newFocusedTokenIndex);
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 0);
-
-      inputRef.current.focus();
     }
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+    // inputRef.current.focus();
+  }
+
+  function handleBackspaceKeyDown() {
+    if (inputValue === "" && tokenEquations.length > 0) {
+      const updatedTokens = [...tokenEquations];
+      const lastEquation = updatedTokens[updatedTokens.length - 1];
+      if (lastEquation.items.length > 1) {
+        lastEquation.items = lastEquation.items.slice(0, -1);
+      } else {
+        updatedTokens.pop();
+      }
+      handleEquationsVerification(updatedTokens, setTokenEquations);
+      setFocusedTokenIndex(null);
+    }
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
   }
 
   // Calculate the width of the input field based on the input value length
   const width = Math.min(Math.max(inputValue.length * 8 + 50, 150), 800);
+
+  const handleDateAccepted = (newValue: string | null) => {
+    if (newValue) {
+      handleTokenCreation(newValue, "value");
+    }
+  };
+
+  if (
+    previousToken?.type === "operator_date" &&
+    previousToken.label !== Operators.LAST.getDisplay()
+  ) {
+    return (
+      <MyDateTimePicker
+        value={inputValue || null}
+        onDateAccepted={handleDateAccepted}
+        handleArrowKeyDown={handleArrowKeyDown}
+        handleBackspaceKeyDown={handleBackspaceKeyDown}
+        inputRef={inputRef}
+      />
+    );
+  }
 
   return (
     <Autocomplete
@@ -252,26 +308,15 @@ export default function SearchField({
               );
               // Always create token on Enter press, regardless of operator type
               handleTokenCreation(inputValue.trim(), type);
-              inputRef.current?.focus();
             }
-            if (
-              e.key === "Backspace" &&
-              inputValue === "" &&
-              tokenEquations.length > 0
-            ) {
-              const updatedTokens = [...tokenEquations];
-              const lastEquation = updatedTokens[updatedTokens.length - 1];
-              if (lastEquation.items.length > 1) {
-                lastEquation.items = lastEquation.items.slice(0, -1);
-              } else {
-                updatedTokens.pop();
-              }
-              handleEquationsVerification(updatedTokens, setTokenEquations);
-              setFocusedTokenIndex(null);
+            if (e.key === "Backspace") {
+              handleBackspaceKeyDown();
             }
+
             if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
               handleArrowKeyDown(e);
             }
+
             if (e.key === "Tab") {
               e.preventDefault();
               setInputValue((prev) => {
