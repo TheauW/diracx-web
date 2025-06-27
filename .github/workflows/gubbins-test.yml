@@ -253,7 +253,7 @@ jobs:
     - name: Clone source
       run: |
         cd ..
-        git clone https://github.com/DIRACGrid/diracx-charts.git
+        git clone https://github.com/aldbr/diracx-charts.git -b main_FIX_diracx-web-install-resources
 
     # ========================================================================#
     # WARNING: In your CI/CD pipeline, you should remove the following steps  #
