@@ -88,6 +88,8 @@ export const WithCustomColors: Story = {
 
       return colors[depth as keyof typeof colors] || "#95A5A6";
     },
+    error: null,
+    isLoading: false,
   },
 };
 
@@ -98,8 +100,6 @@ export const InteractiveExample: Story = {
   render: (args) => {
     const [currentPath, setCurrentPath] = useState<string[]>([]);
     const [tree, setTree] = useState(args.tree);
-
-    console.log("Current p  ath:", currentPath);
 
     useEffect(() => {
       setTree({
@@ -115,6 +115,8 @@ export const InteractiveExample: Story = {
         tree={tree}
         currentPath={currentPath}
         setCurrentPath={setCurrentPath}
+        error={null}
+        isLoading={false}
       />
     );
   },
@@ -124,7 +126,25 @@ export const WithCustomText: Story = {
   args: {
     tree: mockTree,
     sizeToText: (size: number) => {
-      return `${size}\nemployees`;
+      return `${size} \nowners`;
     },
+    error: null,
+    isLoading: false,
+  },
+};
+
+export const WithError: Story = {
+  args: {
+    tree: null,
+    error: new Error("Failed to load data"),
+    isLoading: false,
+  },
+};
+
+export const LoadingState: Story = {
+  args: {
+    tree: null,
+    error: null,
+    isLoading: true,
   },
 };

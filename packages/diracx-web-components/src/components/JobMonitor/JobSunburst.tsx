@@ -5,13 +5,14 @@ import { scaleOrdinal, quantize, interpolateRainbow } from "d3";
 import { Box } from "@mui/material";
 
 import { useOidcAccessToken } from "@axa-fr/react-oidc";
+import { ColumnDef } from "@tanstack/react-table";
 import { useDiracxUrl } from "../../hooks/utils";
 
-import type { JobSummary, SearchBody } from "../../types";
+import type { JobSummary, SearchBody, Job } from "../../types";
 import { Sunburst, Tree } from "../shared/Sunburst";
 import { useOIDCContext } from "../../hooks/oidcConfiguration";
-import { ColumnSelector } from "./SunburstColumnSelector";
-import { getJobSummary } from "./JobDataService";
+import { ColumnSelector } from "../shared/Sunburst/SunburstColumnSelector";
+import { getJobSummary } from "./jobDataService";
 
 import { fromHumanReadableText } from "./JobMonitor";
 
@@ -20,14 +21,18 @@ import { fromHumanReadableText } from "./JobMonitor";
  *
  * @param searchBody The search body to be used in the search
  * @param statusColors The colors to be used for the different job statuses
+ * @param columns The columns to be used in the table
  * @returns
  */
 export function JobSunburst({
   searchBody,
   statusColors,
+  columns,
 }: {
   searchBody: SearchBody;
   statusColors: Record<string, string>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  columns: ColumnDef<Job, any>[];
 }) {
   const { configuration } = useOIDCContext();
   const { accessToken } = useOidcAccessToken(configuration?.scope);
@@ -41,7 +46,7 @@ export function JobSunburst({
   useEffect(() => {
     const newSearch = currentPath.map((elt, index) => {
       return {
-        parameter: fromHumanReadableText(groupColumns[index]),
+        parameter: fromHumanReadableText(groupColumns[index], columns),
         operator: "eq",
         value: elt,
       };
@@ -58,6 +63,7 @@ export function JobSunburst({
         newSearchBody,
         diracxUrl,
         accessToken,
+        columns,
       );
       setTree({
         name: "",
@@ -111,6 +117,7 @@ export function JobSunburst({
         display: "flex",
         flexDirection: { xs: "column", md: "row" },
         width: 1,
+        paddingTop: 2,
         overflow: "auto",
         height: { xs: "auto", md: 1 },
       }}
@@ -124,30 +131,27 @@ export function JobSunburst({
           overflow: "auto",
         }}
       >
-        {tree ? (
-          <Sunburst
-            tree={tree}
-            hasHiddenLevels={hasHiddenLevels}
-            currentPath={currentPath}
-            setCurrentPath={setCurrentPath}
-            sizeToText={sizeToText}
-            colorScales={colorScales}
-          />
-        ) : (
-          <p>Waiting</p>
-        )}
+        <Sunburst
+          tree={tree || { name: "", children: [] }}
+          hasHiddenLevels={hasHiddenLevels}
+          currentPath={currentPath}
+          setCurrentPath={setCurrentPath}
+          sizeToText={sizeToText}
+          colorScales={colorScales}
+          isLoading={!tree}
+          error={tree ? null : Error()}
+        />
       </Box>
 
       {/* Right Section: Column selection */}
       <Box
         sx={{
-          width: { xs: 1, md: 0.4 },
+          width: { xs: 1, md: 0.3 },
           display: "flex",
           flexDirection: "column",
           overflowY: "auto", // Allows scrolling for filters
           alignItems: "center",
           gap: 2,
-          paddingTop: 2,
         }}
       >
         <ColumnSelector
@@ -175,6 +179,8 @@ export async function fetchAndBuildTree(
   searchBody: SearchBody,
   diracxUrl: string | null,
   accessToken: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  columns: ColumnDef<Job, any>[],
 ): Promise<Tree[]> {
   if (groupColumns.length === 0) {
     return [];
@@ -182,8 +188,8 @@ export async function fetchAndBuildTree(
 
   let data: JobSummary[] = [];
 
-  const formatedGroupColumns = groupColumns.map((col) =>
-    fromHumanReadableText(col),
+  const formatedGroupColumns = groupColumns.map((columnName) =>
+    fromHumanReadableText(columnName, columns),
   );
 
   if (diracxUrl && accessToken) {
@@ -203,7 +209,6 @@ export async function fetchAndBuildTree(
  *
  * @param data Data to be transformed into a tree
  * @param groupColumns Array of columns to be used in the group by
- * @param categoryFilter Filter on disabled categories
  * @param parentPath The path to this Data
  * @returns The tree corresponding or the sum if it's a leaf
  */
@@ -212,10 +217,12 @@ function buildTree(
   groupColumns: string[],
   parentPath: string[] = [],
 ): Tree[] {
-  const current = groupColumns[0]; // Current category grouped
+  if (groupColumns.length === 0) return [];
+
+  const current = groupColumns[0];
 
   const groupedData = data.reduce<Record<string, JobSummary[]>>((acc, item) => {
-    const key: string = String(item[current]); // Name of the category
+    const key: string = String(item[current]);
     if (!acc[key]) {
       acc[key] = [];
     }
@@ -223,24 +230,49 @@ function buildTree(
     return acc;
   }, {});
 
+  const total = data.reduce((sum, item) => sum + Number(item["count"]), 0);
+  const threshold = total * 0.05;
+
   const nodes: Tree[] = [];
+  let othersValue: Tree | null = null;
 
-  for (const searchKey in groupedData) {
-    const fullPath: string[] = [...parentPath];
-    fullPath.push(searchKey);
+  for (const key in groupedData) {
+    const group = groupedData[key];
+    const groupTotal = group.reduce(
+      (sum, item) => sum + Number(item["count"]),
+      0,
+    );
 
-    const group = groupedData[searchKey];
-    if (groupColumns.length === 1) {
-      nodes.push({
-        name: searchKey,
-        value: group.reduce((sum, item) => sum + Number(item["count"]), 0),
-      });
+    if (groupTotal < threshold) {
+      // Too small group, add to "Others"
+      if (othersValue === null) {
+        othersValue = { name: key, value: groupTotal };
+      } else if (othersValue) {
+        othersValue = {
+          name: "Others",
+          value: (othersValue.value || 0) + groupTotal,
+        };
+      }
     } else {
-      nodes.push({
-        name: searchKey,
-        children: buildTree(group, groupColumns.slice(1), fullPath),
-      });
+      if (groupColumns.length === 1) {
+        nodes.push({
+          name: key,
+          value: groupTotal,
+        });
+      } else {
+        nodes.push({
+          name: key,
+          children: buildTree(group, groupColumns.slice(1), [
+            ...parentPath,
+            key,
+          ]),
+        });
+      }
     }
+  }
+
+  if (othersValue) {
+    nodes.push(othersValue);
   }
 
   return nodes;
@@ -249,13 +281,30 @@ function buildTree(
 /**
  *
  * @param size The number of jobs
+ * @param total The total number of jobs (optional)
  * @returns A string with the number of jobs
  */
-function sizeToText(size: number): string {
-  if (size > 1e9) return `${(size / 1e9).toFixed(1)} billion jobs`;
-  if (size > 1e6) return `${(size / 1e6).toFixed(1)} million jobs`;
-  if (size > 1e3) return `${(size / 1e3).toFixed(1)} thousand\njobs`;
-  if (size > 1) return `${size} jobs`;
-  if (size === 1) return `1 job`;
+function sizeToText(size: number, total?: number): string {
+  if (size > 1e9)
+    return (
+      `${(size / 1e9).toFixed(1)} billion jobs` +
+      (total ? ` (${((size / total) * 100).toFixed(2)}%)` : "")
+    );
+  if (size > 1e6)
+    return (
+      `${(size / 1e6).toFixed(1)} million jobs` +
+      (total ? ` (${((size / total) * 100).toFixed(2)}%)` : "")
+    );
+  if (size > 1e3)
+    return (
+      `${(size / 1e3).toFixed(1)} thousand\njobs` +
+      (total ? ` (${((size / total) * 100).toFixed(2)}%)` : "")
+    );
+  if (size > 1)
+    return (
+      `${size} jobs` + (total ? ` (${((size / total) * 100).toFixed(2)}%)` : "")
+    );
+  if (size === 1)
+    return `1 job` + (total ? ` (${((size / total) * 100).toFixed(2)}%)` : "");
   return "";
 }

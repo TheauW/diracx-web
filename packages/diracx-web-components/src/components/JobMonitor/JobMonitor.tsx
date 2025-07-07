@@ -108,7 +108,7 @@ export default function JobMonitor() {
         },
   );
 
-  const [chartType, setChartType] = useState("sunburst");
+  const [chartType, setChartType] = useState("table");
 
   // Save the state of the app in local storage
   useEffect(() => {
@@ -135,23 +135,6 @@ export default function JobMonitor() {
     rowSelection,
     pagination,
   ]);
-
-  // Handle the application of filters
-  const handleApplyFilters = () => {
-    setSearchBody((prev) => ({
-      ...prev,
-      search: filters.map(({ parameter, operator, value, values }) => ({
-        parameter: fromHumanReadableText(parameter, columns),
-        operator,
-        value,
-        values,
-      })),
-    }));
-    setPagination((prevState) => ({
-      ...prevState,
-      pageIndex: 0,
-    }));
-  };
 
   // Status colors
   const statusColors: Record<string, string> = useMemo(
@@ -294,6 +277,19 @@ export default function JobMonitor() {
     [columnHelper, renderStatusCell, statusColors],
   );
 
+  // Handle the application of filters
+  const handleApplyFilters = useCallback(() => {
+    setSearchBody((prev) => ({
+      ...prev,
+      search: filters.map(({ parameter, operator, value, values }) => ({
+        parameter: fromHumanReadableText(parameter, columns),
+        operator,
+        value,
+        values,
+      })),
+    }));
+  }, [filters, columns]);
+
   return (
     <Box
       sx={{
@@ -335,7 +331,11 @@ export default function JobMonitor() {
           statusColors={statusColors}
         />
       ) : (
-        <JobSunburst searchBody={searchBody} statusColors={statusColors} />
+        <JobSunburst
+          searchBody={searchBody}
+          statusColors={statusColors}
+          columns={columns}
+        />
       )}
     </Box>
   );

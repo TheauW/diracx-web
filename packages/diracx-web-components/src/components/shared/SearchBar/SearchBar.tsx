@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Box, Menu, MenuItem, IconButton } from "@mui/material";
 
 import DeleteIcon from "@mui/icons-material/Delete";
+import RefreshIcon from "@mui/icons-material/Refresh";
 
 import {
   InternalFilter,
@@ -29,29 +30,29 @@ import {
 import SearchField from "./SearchField";
 
 export interface SearchBarProps {
-  // The filters to be applied to the search
+  /** The filters to be applied to the search */
   filters: InternalFilter[];
-  // The function to set the filters
+  /** The function to set the filters */
   setFilters: React.Dispatch<React.SetStateAction<InternalFilter[]>>;
-  // The data to be used for suggestions
+  /** The data to be used for suggestions */
   createSuggestions: (
     previousToken: SearchBarToken | undefined,
     previousEquation: SearchBarTokenEquation | undefined,
     equationIndex?: number,
   ) => Promise<SearchBarSuggestions>;
-  // The function to call when the search is performed (optional)
+  /** The function to call when the search is performed (optional) */
   searchFunction?: (
     equations: SearchBarTokenEquation[],
     setFilters: React.Dispatch<React.SetStateAction<InternalFilter[]>>,
   ) => void;
-  // The function to call when the search is cleared (optional)
+  /** The function to call when the search is cleared (optional) */
   clearFunction?: (
     setFilters: React.Dispatch<React.SetStateAction<InternalFilter[]>>,
     setTokenEquations: React.Dispatch<
       React.SetStateAction<SearchBarTokenEquation[]>
     >,
   ) => void;
-  // Whether to allow keyword search or not (default is true)
+  /** Whether to allow keyword search or not (default is true) */
   allowKeyWordSearch?: boolean;
 }
 
@@ -110,7 +111,7 @@ export function SearchBar({
     }
 
     if (filters.length !== 0 && tokenEquations.length === 0) load();
-  }, [filters, createSuggestions]);
+  }, []);
 
   // Create a list of options based on the current tokens and data
   useEffect(() => {
@@ -123,7 +124,7 @@ export function SearchBar({
       setSuggestions(result);
     }
     load();
-  }, [previousEquation, previousToken, createSuggestions]);
+  }, [previousEquation, previousToken, createSuggestions, focusedTokenIndex]);
 
   // Timer to delay the search function
   // This effect will trigger the searchFonction after a delay if the equations are valid
@@ -146,7 +147,7 @@ export function SearchBar({
     const hasChanged =
       currentEquationsString !== lastSearchedEquationsRef.current;
 
-    if (allEquationsValid && searchFunction && hasChanged) {
+    if (allEquationsValid && hasChanged) {
       searchTimerRef.current = setTimeout(() => {
         lastSearchedEquationsRef.current = currentEquationsString;
         searchFunction(tokenEquations, setFilters);
@@ -185,7 +186,6 @@ export function SearchBar({
   };
 
   const handleOptionSelect = (option: string, type: string) => {
-    // Nettoyer le timer lors d'une interaction
     if (searchTimerRef.current) {
       clearTimeout(searchTimerRef.current);
     }
@@ -271,7 +271,7 @@ export function SearchBar({
         display: "flex",
         border: "1px solid",
         borderColor: "grey.400",
-        overflow: "auto",
+        overflow: "hidden",
         borderRadius: 1,
         ":focus-within": {
           borderColor: "primary.main",
@@ -280,7 +280,7 @@ export function SearchBar({
       }}
       data-testid="search-bar"
     >
-      <Box sx={{ gap: 1, display: "flex", padding: 1, width: 0.9 }}>
+      <Box sx={{ gap: 1, display: "flex", padding: 1, overflow: "auto" }}>
         {tokenEquations.map((equation, index) => (
           <DisplayTokenEquation
             key={index}
@@ -318,17 +318,28 @@ export function SearchBar({
             ))}
         </Menu>
       </Box>
-      {tokenEquations.length !== 0 && (
+      <Box sx={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
         <IconButton
-          onClick={() => {
-            clearFunction(setFilters, setTokenEquations);
-          }}
-          disabled={tokenEquations.length === 0}
-          sx={{ marginLeft: "auto", width: "40px", height: "40px" }}
+          onClick={() => searchFunction(tokenEquations, setFilters)}
+          disabled={
+            !tokenEquations.every((eq) => eq.status === EquationStatus.VALID)
+          }
+          sx={{ width: "40px", height: "40px" }}
         >
-          <DeleteIcon />
+          <RefreshIcon />
         </IconButton>
-      )}
+
+        {tokenEquations.length !== 0 && (
+          <IconButton
+            onClick={() => {
+              clearFunction(setFilters, setTokenEquations);
+            }}
+            sx={{ width: "40px", height: "40px" }}
+          >
+            <DeleteIcon />
+          </IconButton>
+        )}
+      </Box>
     </Box>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { useOidcAccessToken } from "@axa-fr/react-oidc";
 import { useOIDCContext } from "../../hooks/oidcConfiguration";
@@ -42,16 +42,11 @@ export function JobSearchBar({
 }: JobSearchBarProps) {
   const { configuration } = useOIDCContext();
   const { accessToken } = useOidcAccessToken(configuration?.scope);
-  const oldFilters = useRef<string>("");
 
   const diracxUrl = useDiracxUrl();
 
   useEffect(() => {
-    const currentFilters = JSON.stringify(filters);
-    if (oldFilters.current !== currentFilters) {
-      oldFilters.current = currentFilters;
-      handleApplyFilters();
-    }
+    handleApplyFilters();
   }, [filters, handleApplyFilters]);
 
   return (

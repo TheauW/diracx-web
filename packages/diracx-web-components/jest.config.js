@@ -13,7 +13,17 @@ const config = {
   moduleNameMapper: {
     "^@axa-fr/react-oidc$": "<rootDir>/stories/mocks/react-oidc.mock.tsx",
     "^../../hooks/metadata$": "<rootDir>/stories/mocks/metadata.mock.tsx",
-    "^./jobDataService$": "<rootDir>/stories/mocks/jobDataService.mock.ts",
+    "^./jobDataService$": "<rootDir>/stories/mocks/jobDataService.mock.tsx",
+    "\\.css$": "<rootDir>/stories/mocks/style.mock.ts",
+  },
+
+  transformIgnorePatterns: [
+    "/node_modules/(?!d3|d3-[^/]+|internmap|delaunator|robust-predicates)",
+  ],
+
+  transform: {
+    "^.+\\.(ts|tsx)$": "ts-jest",
+    "^.+\\.(js|jsx)$": "babel-jest",
   },
 };
 

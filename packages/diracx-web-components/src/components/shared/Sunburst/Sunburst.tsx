@@ -13,7 +13,7 @@ import {
 
 import { scaleOrdinal } from "d3-scale";
 
-import { Stack, useTheme, Box } from "@mui/material";
+import { Stack, useTheme, Box, Alert, Skeleton } from "@mui/material";
 
 import "./Chart.css";
 
@@ -26,7 +26,7 @@ interface SunburstProps {
   /** Boolean indicating if there are hidden levels */
   hasHiddenLevels?: boolean;
   /** Function to convert the size to text */
-  sizeToText?: (size: number) => string;
+  sizeToText?: (size: number, total?: number) => string;
   /** The current path in the data tree */
   currentPath?: string[];
   /** Callback function to remove a quarter from the chart */
@@ -35,6 +35,10 @@ interface SunburstProps {
   setCurrentPath?: React.Dispatch<React.SetStateAction<string[]>>;
   /**  Function to generate color scales for the chart */
   colorScales?: (name: string, size: number, depth: number) => string;
+  /** Boolean indicating if the chart is loading */
+  isLoading: boolean;
+  /** Error object if there is an error */
+  error: Error | null;
 }
 
 /**
@@ -53,6 +57,8 @@ export function Sunburst({
   handleRightClick,
   setCurrentPath,
   colorScales,
+  isLoading,
+  error,
 }: SunburstProps) {
   // Create a stable default color scale with useMemo
   const defaultColorScale = useMemo(() => {
@@ -78,6 +84,9 @@ export function Sunburst({
   const height = 800;
 
   useEffect(() => {
+    // Avoid those specific cases
+    if (error || isLoading || !tree || tree.children?.length === 0) return;
+
     const radius: number = width / 7;
 
     // Compute the layout.
@@ -147,7 +156,7 @@ export function Sunburst({
       })
       .attr("fill-opacity", (d) =>
         arcVisible(d.current!)
-          ? d.children || hasHiddenLevels
+          ? d.data.name !== "Others" && (d.children || hasHiddenLevels)
             ? 0.8
             : 0.4
           : 0,
@@ -169,7 +178,11 @@ export function Sunburst({
       // If the chart can be modified
       // Make them clickable if they have children.
       path
-        .filter((d: Node) => Array.isArray(d.children) || hasHiddenLevels)
+        .filter(
+          (d: Node) =>
+            d.data.name !== "Others" &&
+            (Array.isArray(d.children) || hasHiddenLevels),
+        )
         .style("cursor", "pointer")
         .on("click", zoom);
     }
@@ -251,7 +264,7 @@ export function Sunburst({
       tooltip.text(
         (currentPath || []).concat(getPath(p)).join("/") +
           ": " +
-          sizeToText(p.value || 0),
+          sizeToText(p.value || 0, root.value),
       );
     }
 
@@ -282,6 +295,33 @@ export function Sunburst({
     finalColorScales,
     sizeToText,
   ]);
+
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ marginTop: 2 }}>
+        {error.message || "An error occurred while loading the data."}
+      </Alert>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <Skeleton
+        variant="circular"
+        animation="pulse"
+        height="100%"
+        width="100%"
+        data-testid="loading-skeleton"
+      />
+    );
+  }
+
+  if (tree.children?.length === 0)
+    return (
+      <Alert severity="info" sx={{ marginTop: 2, height: 50 }}>
+        No data or no results match your filters.
+      </Alert>
+    );
 
   return (
     <Stack sx={{ height: 1, width: 1 }}>
